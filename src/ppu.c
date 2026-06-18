@@ -2,9 +2,11 @@
  *
  * Renders each visible scanline (sampling registers at the mode-3->0
  * transition) into a 160x144 framebuffer of shade indices (0=lightest,
- * 3=darkest). Mode timing is fixed-length per line (OAM 80 / draw 172 /
- * HBlank 204 dots); variable mode-3 length and VRAM/OAM access blocking
- * are a later (sub-instruction timing) frontier. Enough to pass dmg-acid2.
+ * 3=darkest). Mode 2 = 80 dots, mode 3 = 172 + (SCX & 7) dots, mode 0 fills
+ * the rest. The STAT *mode field* read via FF41 lags the internal mode by 8
+ * dots at the 2->3 and 3->0 boundaries (a DMG quirk Mooneye intr_2 tests pin);
+ * the STAT IRQ and rendering use the real transitions. Sprite/window mode-3
+ * penalties and VRAM/OAM access blocking are a later frontier.
  */
 #include "gb.h"
 #include <string.h>
@@ -136,6 +138,23 @@ static void render_scanline(GB *g, int y) {
 
 static void set_mode(GB *g, u8 mode) { g->mode = mode; }
 
+/* The mode field reported via STAT lags the internal mode at the 2->3 and
+ * 3->0 boundaries by 8 dots (a documented DMG quirk Mooneye's intr_2_mode0/
+ * mode3 tests pin down). The STAT interrupt line and rendering still use the
+ * real transitions. */
+#define STAT_MODE_DELAY 8
+/* Mode-3 is lengthened by the SCX fine-scroll (0-7 dots), which pushes mode 0
+ * (and its STAT IRQ) later. Sprite/window penalties are a later item. */
+static inline int mode3_end(GB *g) { return MODE3_END + (g->scx & 7); }
+
+static u8 stat_reported_mode(GB *g) {
+    if (g->ly >= VBLANK_LINE) return 1;
+    u32 dot = g->ppu_dot % LINE_DOTS;
+    if (dot < MODE2_END + STAT_MODE_DELAY) return 2;
+    if (dot < (u32)mode3_end(g) + STAT_MODE_DELAY) return 3;
+    return 0;
+}
+
 static void stat_check(GB *g) {
     bool line = false;
     if ((g->stat & 0x08) && g->mode == 0) line = true;
@@ -160,7 +179,7 @@ void ppu_tick(GB *g, int tcycles) {
         u8 mode;
         if (ly >= VBLANK_LINE) mode = 1;
         else if (line_dot < MODE2_END) mode = 2;
-        else if (line_dot < MODE3_END) mode = 3;
+        else if (line_dot < (u32)mode3_end(g)) mode = 3;
         else mode = 0;
 
         if (mode != g->mode) {
@@ -185,7 +204,9 @@ void ppu_tick(GB *g, int tcycles) {
 u8 ppu_read(GB *g, u16 addr) {
     switch (addr) {
         case 0xFF40: return g->lcdc;
-        case 0xFF41: return (g->stat & 0x78) | (g->ly == g->lyc ? 0x04 : 0) | g->mode | 0x80;
+        case 0xFF41:
+            return (g->stat & 0x78) | (g->ly == g->lyc ? 0x04 : 0) |
+                   stat_reported_mode(g) | 0x80;
         case 0xFF42: return g->scy;
         case 0xFF43: return g->scx;
         case 0xFF44: return g->ly;

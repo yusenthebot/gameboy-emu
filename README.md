@@ -6,8 +6,8 @@ dependencies — the whole core is ~1,500 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-93%2F93%20green-brightgreen)
-![mooneye](https://img.shields.io/badge/Mooneye-49%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
+![tests](https://img.shields.io/badge/tests-95%2F95%20green-brightgreen)
+![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
 The emphasis is **timing**, not just "the picture looks right." The CPU is stepped at
@@ -25,10 +25,10 @@ sub-instruction timing tests.
 | **Blargg `mem_timing`** | read / write / modify → `Passed` |
 | **Blargg `halt_bug`** | `Passed` (HALT-bug correct) |
 | **dmg-acid2** | **0 / 23040 pixel mismatches** vs the official reference |
-| **Mooneye-GB acceptance (DMG)** | **49 / 66** |
+| **Mooneye-GB acceptance (DMG)** | **51 / 66** |
 | **Mooneye-GB MBC** (MBC1/2/5) | **27 / 28** |
 
-The full regression gate is **93/93 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **95/95 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## Architecture

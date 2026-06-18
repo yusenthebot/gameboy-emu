@@ -4,10 +4,10 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 7 (complete, committed) — MBC2 + MBC5 + MBC1 banking-bits
+ROUND: 8 (complete, committed) — PPU STAT mode-field timing
 SUBSTRATE: C11 + clang
-PASS COUNT: 93/93  (15 serial + acid2 img + halt_bug hash + 76 Mooneye [49 acceptance + 27 emulator-only MBC])
-  Round 6 was the user-directed publish round (docs + public repo). Round 7 = MBC support.
+PASS COUNT: 95/95  (15 serial + acid2 + halt_bug + 78 Mooneye [51 acceptance + 27 emulator-only])
+  Round 8: cracked the DMG STAT mode-field-read quirk (+intr_2_mode0_timing, intr_2_mode3_timing).
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -35,18 +35,25 @@ STILL FAILING (frontier, 17; ROMs in /tmp/gbtr_x/mooneye-test-suite, not vendore
   - interrupts/ie_push (IE-overwrite cancel quirk: intricate; vector sampled mid-dispatch),
     rapid_di_ei, boot_div, boot_hwio, serial/boot_sclk_align.
 
-MBC: emulator-only 27/28 (only mbc1/multicart_rom_8Mb fails — MBC1m needs special
-  multicart wiring detection). Mooneye budget bumped to 40M in run_tests.sh (MBC bits
-  tests run ~12.5M cycles — the old 12M budget cut them off at 99.97%, a budget bug not
-  a logic bug). Battery .sav save DEFERRED to pair with the interactive frontend.
+PPU cluster: 5/12 pass now (+intr_2_mode0_timing, intr_2_mode3_timing this round).
+  KEY FINDING (ppu.c): the STAT mode FIELD read via FF41 lags the internal mode by 8 dots
+  at the 2->3 and 3->0 boundaries (stat_reported_mode, STAT_MODE_DELAY=8); the STAT IRQ
+  and rendering keep the REAL transitions (delaying the IRQ broke intr_2_0_timing). Also
+  added variable mode-3 length = 172 + (SCX & 7).
+  STILL FAILING (7): hblank_ly_scx (mode-0 IRQ + SCX interaction — SCX penalty added but
+  not enough), intr_2_mode0_timing_sprites + intr_2_oam_ok (sprite mode-3 penalty + OAM
+  access timing), lcdon_timing + lcdon_write (LCD-on first-frame quirk: first frame short,
+  mode timing differs), stat_lyc_onoff (LYC IRQ toggling), vblank_stat_intr (vblank/STAT).
+  These need: sprite/OAM mode-3 penalties, the LCD-enable first-frame model, LYC edge
+  details. A per-dot FIFO refactor would make them fall out — the next big PPU push.
 
-NEXT ROUND SEED (round 8): PPU mode-timing cluster (ppu/*, 9 tests). This is the real
-  remaining frontier and the user's emphasis. Likely needs: variable mode-3 length (depends
-  on SCX fine-scroll + sprite count + window), precise STAT mode/LYC IRQ edges, LCD-on
-  timing (first frame after enable is short / mode quirks). Strongly consider the FIFO
-  pixel-pipeline refactor (per-dot rendering) as the substrate — it makes mode-3 length and
-  STAT quirks fall out naturally and sets up Wilbert Pol / mealybug later.
-  Secondary cheap-ish: oam_dma_start/sources (DMA-conflict model), ie_push, rapid_di_ei.
+MBC: emulator-only 27/28 (only mbc1/multicart fails). Battery .sav DEFERRED to frontend.
+
+NEXT ROUND SEED (round 9): continue PPU — pick (a) sprite/OAM mode-3 penalties for
+  intr_2_mode0_timing_sprites + intr_2_oam_ok, or (b) the LCD-on first-frame quirk for
+  lcdon_timing/lcdon_write, or (c) escalate to the FIFO per-dot rewrite (sets up all of
+  them + Wilbert Pol / mealybug). Alternatively pivot to APU (new subsystem, Blargg
+  dmg_sound) or the interactive frontend + a homebrew game (the Tetris-title-screen goal).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

@@ -152,6 +152,31 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 8 — PPU STAT mode-field timing quirk (PASS 93->95)  [committed]
+
+### What was built
+- src/ppu.c `stat_reported_mode()`: the mode field read via FF41 lags the internal mode by
+  8 dots (STAT_MODE_DELAY) at the 2->3 and 3->0 boundaries. The STAT IRQ (stat_check) and
+  rendering still use the real `g->mode` transitions.
+- Variable mode-3 length: `mode3_end() = 80 + 172 + (SCX & 7)`.
+
+### How it was found (systematic instrumentation)
+- Confirmed first that mode timing (2@0, 3@80, 0@252) and dispatch were already correct
+  (halt_ime/di/ei timing tests pass). So the intr_2 failures were a STAT-field quirk.
+- Traced the test's STAT poll reads on line 0x44: mode3 read@84 saw mode3 but the test
+  needs mode2 there (read@88 mode3); mode0 read@256 saw mode0 but needs mode3 (read@260
+  mode0). Both = the real transition + 8 dots. Implemented exactly that.
+- Tried delaying the STAT IRQ too -> broke intr_2_0_timing. Lesson: only the FIELD lags,
+  not the IRQ. Reverted; +intr_2_mode0_timing, +intr_2_mode3_timing, no regression.
+
+### Verified
+- ppu cluster 3/12 -> 5/12. acid2 still 0/23040. Full gate 93 -> 95, all green.
+
+### Still failing / next (7 ppu): hblank_ly_scx (SCX penalty added but mode-0 IRQ timing
+  needs more), intr_2_mode0_timing_sprites + intr_2_oam_ok (sprite mode-3 penalty + OAM
+  access timing), lcdon_timing + lcdon_write (LCD-on first-frame quirk), stat_lyc_onoff,
+  vblank_stat_intr. A per-dot FIFO refactor would subsume these.
+
 ## Round 7 — MBC2 + MBC5 + MBC1 banking-bits (PASS 66->93)  [committed]
 
 ### What was built
