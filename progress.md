@@ -152,6 +152,35 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 7 — MBC2 + MBC5 + MBC1 banking-bits (PASS 66->93)  [committed]
+
+### What was built
+- Rewrote src/cart.c with a per-MBC banking dispatch:
+  - MBC1: store raw 5-bit BANK1 (0->1 translation moved to use-time), 2-bit BANK2, mode;
+    fixes bits_bank1/bits_bank2/bits_mode/bits_ramg.
+  - MBC2: address-bit-8 register select (RAMG vs ROMB), 4-bit ROM bank, built-in
+    512x4-bit RAM (upper nibble reads 1).
+  - MBC5: 9-bit ROM bank (low 8 @ 2000-2FFF, bit 8 @ 3000-3FFF), 4-bit RAM bank, no 0->1.
+  - has_battery detection extended to MBC2/3/5 battery types.
+- run_tests.sh mooneye budget 12M -> 40M.
+
+### Verified (real runs)
+- emulator-only MBC: 8/28 -> 27/28 (all MBC5, all MBC2 except... all pass; MBC1 bits all
+  pass; only mbc1/multicart_rom_8Mb fails = MBC1m multicart, special).
+- No regression: acceptance still 49/49, cpu_instrs/acid2 green. Gate 66 -> 93, 2.8s.
+
+### What did NOT work / notes
+- The MBC bits tests first appeared to "hang" (timeout at 12M cycles). Traced the MBC
+  writes (correct banking!) and the PC (stuck in HRAM memcmp) — root cause was simply the
+  cycle BUDGET: these tests legitimately run ~12.5M cycles (0x2000-address sweep x HRAM
+  memcmp), and the 12M default cut them off at 99.97%. Bumped to 40M. Lesson: distinguish
+  "hang" from "budget too low" by raising the budget before debugging logic.
+- mbc1/multicart (MBC1m): needs detecting a multicart and remapping BANK2 into bits 4-5 of
+  the ROM bank with a different mask. Deferred (1 test, special).
+- Battery .sav save deferred to the interactive-frontend round (unverified I/O otherwise).
+- Chose MBC over the PPU cluster this round: higher ROI (+27 vs an uncertain 0-4), lower
+  risk, and a stated goal. PPU mode-timing is round 8.
+
 ## Round 6 — public release (docs + GitHub publish)  [committed + pushed]  (user-directed)
 
 - Owner directed: create a public repo with a complete README + block diagram, upload project.

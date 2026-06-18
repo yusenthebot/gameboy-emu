@@ -45,11 +45,12 @@ typedef struct Cart {
     int mbc;            /* 0 = none, 1 = MBC1, etc. */
     int rom_banks;
     int ram_banks;
-    /* MBC1 banking state */
+    /* MBC banking state (interpretation depends on mbc) */
     bool ram_enable;
-    u8  bank_lo;        /* 5-bit low bank number */
-    u8  bank_hi;        /* 2-bit upper bits (RAM bank or ROM upper) */
-    u8  mode;           /* 0 = ROM banking, 1 = RAM banking */
+    u8  bank_lo;        /* MBC1: 5-bit BANK1 · MBC2: 4-bit ROM bank · MBC5: ROM bank low 8 */
+    u8  bank_hi;        /* MBC1: 2-bit BANK2 · MBC5: ROM bank bit 8 */
+    u8  ram_bank;       /* MBC5: 4-bit RAM bank */
+    u8  mode;           /* MBC1: 0 = ROM banking, 1 = RAM/advanced banking */
     char title[17];
     bool has_battery;
 } Cart;

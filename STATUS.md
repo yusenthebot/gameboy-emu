@@ -4,11 +4,10 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 6 (complete, committed + PUBLISHED) — user-directed publish round
+ROUND: 7 (complete, committed) — MBC2 + MBC5 + MBC1 banking-bits
 SUBSTRATE: C11 + clang
-PASS COUNT: 66/66  (15 serial + acid2 img + halt_bug hash + 49 Mooneye acceptance)
-  NOTE: round 6 was a user-directed publish round (docs + public repo), not a test round,
-  so the count is unchanged by design. Round 7 resumes strictly increasing it.
+PASS COUNT: 93/93  (15 serial + acid2 img + halt_bug hash + 76 Mooneye [49 acceptance + 27 emulator-only MBC])
+  Round 6 was the user-directed publish round (docs + public repo). Round 7 = MBC support.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -36,7 +35,12 @@ STILL FAILING (frontier, 17; ROMs in /tmp/gbtr_x/mooneye-test-suite, not vendore
   - interrupts/ie_push (IE-overwrite cancel quirk: intricate; vector sampled mid-dispatch),
     rapid_di_ei, boot_div, boot_hwio, serial/boot_sclk_align.
 
-NEXT ROUND SEED (round 7): PPU mode-timing cluster (ppu/*, 8 tests). This is the real
+MBC: emulator-only 27/28 (only mbc1/multicart_rom_8Mb fails — MBC1m needs special
+  multicart wiring detection). Mooneye budget bumped to 40M in run_tests.sh (MBC bits
+  tests run ~12.5M cycles — the old 12M budget cut them off at 99.97%, a budget bug not
+  a logic bug). Battery .sav save DEFERRED to pair with the interactive frontend.
+
+NEXT ROUND SEED (round 8): PPU mode-timing cluster (ppu/*, 9 tests). This is the real
   remaining frontier and the user's emphasis. Likely needs: variable mode-3 length (depends
   on SCX fine-scroll + sprite count + window), precise STAT mode/LYC IRQ edges, LCD-on
   timing (first frame after enable is short / mode quirks). Strongly consider the FIFO

@@ -57,7 +57,7 @@ done
 mooneye_pass=0
 while IFS= read -r rom; do
     total=$((total+1))
-    res=$("$BIN" "$rom" --mooneye --cycles 12000000 2>&1 | grep -oE "RESULT: [A-Z]+" | head -1); res=${res#RESULT: }
+    res=$("$BIN" "$rom" --mooneye --cycles 40000000 2>&1 | grep -oE "RESULT: [A-Z]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); mooneye_pass=$((mooneye_pass+1))
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
 done < <(find roms/mooneye -name '*.gb' | sort)

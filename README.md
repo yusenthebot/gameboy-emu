@@ -6,8 +6,8 @@ dependencies — the whole core is ~1,500 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-66%2F66%20green-brightgreen)
-![mooneye](https://img.shields.io/badge/Mooneye%20DMG%20acceptance-49%2F66-success)
+![tests](https://img.shields.io/badge/tests-93%2F93%20green-brightgreen)
+![mooneye](https://img.shields.io/badge/Mooneye-49%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
 The emphasis is **timing**, not just "the picture looks right." The CPU is stepped at
@@ -26,8 +26,9 @@ sub-instruction timing tests.
 | **Blargg `halt_bug`** | `Passed` (HALT-bug correct) |
 | **dmg-acid2** | **0 / 23040 pixel mismatches** vs the official reference |
 | **Mooneye-GB acceptance (DMG)** | **49 / 66** |
+| **Mooneye-GB MBC** (MBC1/2/5) | **27 / 28** |
 
-The full regression gate is **66/66 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **93/93 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## Architecture
@@ -79,7 +80,7 @@ flowchart TB
 |------|------:|----------------|
 | `src/cpu.c` | 451 | SM83 core: every opcode, exact flags, interrupt dispatch, the per-M-cycle clock |
 | `src/ppu.c` | 223 | Scanline PPU: background, window, sprites, priorities, palettes → 160×144 framebuffer |
-| `src/cart.c` | 146 | Cartridge loading, header parsing, MBC1 banking + external RAM |
+| `src/cart.c` | 208 | Cartridge loading, header parsing, MBC1/2/5 banking + external RAM |
 | `src/bus.c` | 119 | System memory map, I/O register dispatch, cycle-accurate OAM DMA |
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
 | `src/timer.c` | 103 | DIV/TIMA/TMA/TAC with falling-edge detection and the reload-window quirks |
@@ -155,7 +156,7 @@ STATUS.md, progress.md   current state + full round-by-round build log
 
 ## Status & roadmap
 
-**Done:** full SM83 core · per-M-cycle timing · scanline PPU (acid2-perfect) · MBC1 ·
+**Done:** full SM83 core · per-M-cycle timing · scanline PPU (acid2-perfect) · MBC1/2/5 ·
 cycle-accurate OAM DMA · timer quirks · headless test harness.
 
 **Next (the remaining timing tail):**
@@ -163,7 +164,7 @@ cycle-accurate OAM DMA · timer quirks · headless test harness.
 - **PPU mode timing** — variable mode-3 length, precise STAT/LYC interrupt edges, LCD-on
   timing. Likely a FIFO pixel-pipeline (per-dot) refactor — this is the next major round.
 - **APU** — the four sound channels + audio output.
-- **More MBCs** — MBC2/3/5, RTC, battery-backed `.sav`.
+- **MBC3 + RTC**, battery-backed `.sav` persistence, and the MBC1 multicart variant.
 - **CGB mode** — double speed, VRAM banks, palettes, HDMA.
 - **Tooling** — a debugger, save-states, and rewind.
 
