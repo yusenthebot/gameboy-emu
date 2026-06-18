@@ -4,9 +4,16 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 5 (complete, committed)
+ROUND: 6 (complete, committed + PUBLISHED) — user-directed publish round
 SUBSTRATE: C11 + clang
 PASS COUNT: 66/66  (15 serial + acid2 img + halt_bug hash + 49 Mooneye acceptance)
+  NOTE: round 6 was a user-directed publish round (docs + public repo), not a test round,
+  so the count is unchanged by design. Round 7 resumes strictly increasing it.
+
+PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
+  Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
+  commit locally as usual; push to origin at milestones or when the owner asks (pushing is
+  an outward gate — don't force-push; the repo is public so be deliberate).
 
 CURRENT STATE:
 - SM83 CPU: full opcodes+CB, per-M-cycle cycle-accurate timing (tick-before-access).
@@ -29,7 +36,7 @@ STILL FAILING (frontier, 17; ROMs in /tmp/gbtr_x/mooneye-test-suite, not vendore
   - interrupts/ie_push (IE-overwrite cancel quirk: intricate; vector sampled mid-dispatch),
     rapid_di_ei, boot_div, boot_hwio, serial/boot_sclk_align.
 
-NEXT ROUND SEED (round 6): PPU mode-timing cluster (ppu/*, 8 tests). This is the real
+NEXT ROUND SEED (round 7): PPU mode-timing cluster (ppu/*, 8 tests). This is the real
   remaining frontier and the user's emphasis. Likely needs: variable mode-3 length (depends
   on SCX fine-scroll + sprite count + window), precise STAT mode/LYC IRQ edges, LCD-on
   timing (first frame after enable is short / mode quirks). Strongly consider the FIFO

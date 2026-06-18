@@ -152,10 +152,23 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 6 — public release (docs + GitHub publish)  [committed + pushed]  (user-directed)
+
+- Owner directed: create a public repo with a complete README + block diagram, upload project.
+- Wrote a comprehensive README.md (overview, **Mermaid** architecture/block diagram, the
+  per-M-cycle timing model with examples, the 4 test-verification strategies, build/run,
+  roadmap, third-party ROM attribution) + MIT LICENSE (vendored ROMs noted under their own
+  licenses). Adversarially fact-checked the README against the code via a sub-agent; fixed 3
+  real inaccuracies (serial capture path, layout section, tick-before-access scope) + a stale
+  main.c comment before pushing.
+- Published: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, 6 commits, MIT,
+  topics set). Verified remote tree + README integrity via the GitHub API.
+- Gate unchanged (66/66) — publish round, not a test round.
+
 ## Frontier
 
 - CURRENT CEILING: cycle-accurate CPU + OAM DMA + timer quirks; 49/66 Mooneye DMG; acid2 perfect.
-  SameBoy-tier for CPU/DMA/timer timing. The PPU is still the weak link (fixed mode timing).
+  Now PUBLIC at github.com/yusenthebot/gameboy-emu. The PPU is still the weak link (fixed mode timing).
 - NEXT FRONTIER (round 6): PPU mode-timing cluster (ppu/*, 8 tests) — the real remaining
   frontier. Variable mode-3 length, precise STAT mode/LYC IRQ edges, LCD-on timing. Strongly
   consider the FIFO pixel-pipeline (per-dot) refactor as the substrate — it makes mode-3
