@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -43,11 +43,21 @@ for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
 done
 
 # --- framehash ROMs (rom:frames:sha256) verified visually once ---
-for spec in "roms/halt_bug.gb:200:af839267dfcc94c90f576235f84ad5a49ca01bfe98ea983e5e1446a586590c52"; do
-    IFS=: read -r rom frames want <<< "$spec"; total=$((total+1)); name="${rom#roms/} (hash)"
+# Blargg dmg_sound subtests print "Passed" on screen (no serial); gated by frame hash.
+FRAMEHASH=(
+  "roms/halt_bug.gb:200:af839267dfcc94c90f576235f84ad5a49ca01bfe98ea983e5e1446a586590c52"
+  "roms/dmg_sound/01-registers.gb:1300:889a65d03aafcb1eaf083cc5c427d52131df4ea5f94b18696e4e0ba22c761980"
+  "roms/dmg_sound/02-len ctr.gb:1300:fe526b2e378dba4ce9b8b840badcc38cc97dc624400ab78274d51e25754e1b03"
+  "roms/dmg_sound/03-trigger.gb:1300:d91b281e25a0dbfd4e99d65a3f85a02af6890f895a524fe8fa3ee1082a6fcac9"
+  "roms/dmg_sound/06-overflow on trigger.gb:1300:ab0917bbc7bb37e7391ee4d8ca6f081973efb96ddbd9b8348d5386a2f965dd5c"
+  "roms/dmg_sound/11-regs after power.gb:1300:be757e3af99787512f4a5c1701c75750781689f8c013cd9d3743b2f9ce76e585"
+)
+for spec in "${FRAMEHASH[@]}"; do
+    want="${spec##*:}"; rest="${spec%:*}"; frames="${rest##*:}"; rom="${rest%:*}"
+    total=$((total+1)); name="${rom#roms/} (hash)"
     if [ ! -f "$rom" ]; then fail=$((fail+1)); row "$name" "MISSING"; continue; fi
     tmp="/tmp/gbemu_$(basename "$rom").hraw"
-    "$BIN" "$rom" --frames "$frames" --raw "$tmp" --cycles 60000000 >/dev/null 2>&1
+    "$BIN" "$rom" --frames "$frames" --raw "$tmp" --cycles 250000000 >/dev/null 2>&1
     got=$(shasum -a 256 "$tmp" | cut -d' ' -f1)
     if [ "$got" = "$want" ]; then pass=$((pass+1)); row "$name" "PASS"
     else fail=$((fail+1)); row "$name" "FAIL ($got)"; fi

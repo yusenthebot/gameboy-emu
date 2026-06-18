@@ -4,10 +4,10 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 8 (complete, committed) — PPU STAT mode-field timing
+ROUND: 9 (complete, committed) — APU (sound) core
 SUBSTRATE: C11 + clang
-PASS COUNT: 95/95  (15 serial + acid2 + halt_bug + 78 Mooneye [51 acceptance + 27 emulator-only])
-  Round 8: cracked the DMG STAT mode-field-read quirk (+intr_2_mode0_timing, intr_2_mode3_timing).
+PASS COUNT: 100/100  (15 serial + acid2 + 6 framehash[halt_bug + 5 dmg_sound] + 78 Mooneye)
+  Round 9: implemented the APU (src/apu.c) — passes 5 Blargg dmg_sound subtests.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -49,11 +49,20 @@ PPU cluster: 5/12 pass now (+intr_2_mode0_timing, intr_2_mode3_timing this round
 
 MBC: emulator-only 27/28 (only mbc1/multicart fails). Battery .sav DEFERRED to frontend.
 
-NEXT ROUND SEED (round 9): continue PPU — pick (a) sprite/OAM mode-3 penalties for
-  intr_2_mode0_timing_sprites + intr_2_oam_ok, or (b) the LCD-on first-frame quirk for
-  lcdon_timing/lcdon_write, or (c) escalate to the FIFO per-dot rewrite (sets up all of
-  them + Wilbert Pol / mealybug). Alternatively pivot to APU (new subsystem, Blargg
-  dmg_sound) or the interactive frontend + a homebrew game (the Tetris-title-screen goal).
+APU (src/apu.c, round 9): NRxx register file + masks, NR52 power (off clears regs; DMG
+  length-write-while-off quirk), 512Hz frame sequencer (DIV bit 12 falling edge), length
+  counters (+ trigger/enable extra-clock quirk), envelope, ch1 sweep. dmg_sound subtests
+  screen-output only (no serial) -> gated by frame-hash (1300 frames). PASS: 01-registers,
+  02-len ctr, 03-trigger, 06-overflow on trigger, 11-regs after power (5/12).
+  FAILING (7): 04-sweep, 05-sweep details, 07-len sweep period sync (sweep edge cases +
+  FS-period sync), 08-len ctr during power (power/FS-DIV coupling precision), 09/10/12
+  wave read/trigger/write-while-on (wave channel access quirks). No audio output yet (cpal).
+
+NEXT ROUND SEED (round 10): options — (a) more APU: wave channel access quirks (09/10/12),
+  sweep edge cases (04/05/07), power-FS coupling (08); (b) back to PPU: sprite/OAM mode-3
+  penalties, LCD-on quirk, or the FIFO per-dot rewrite; (c) escalate in kind to the
+  interactive frontend (SDL/minifb + input + cpal audio) + a homebrew game -> the
+  Tetris-title-screen / playability goal (needs a free homebrew ROM, network).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

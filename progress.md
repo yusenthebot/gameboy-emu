@@ -152,6 +152,31 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 9 — APU (sound) core (PASS 95->100)  [committed]
+
+### What was built
+- src/apu.c (new subsystem): NRxx register file + read masks, NR52 power (off clears
+  registers; DMG still allows length writes while off), 512 Hz frame sequencer clocked by
+  the falling edge of DIV bit 12, length counters for all 4 channels (with the trigger /
+  enable "extra clock" quirk), volume envelopes, ch1 frequency sweep (with overflow disable).
+- Wired apu_read/write into bus.c (FF10-FF26, FF30-FF3F) and apu_tick into cpu.c tick();
+  apu_init in cpu_init_postboot (DMG post-boot register values).
+
+### Verified (real runs)
+- Blargg dmg_sound subtests are screen-output only (no serial) -> frame-hash gate (1300
+  frames, verified "Passed" visually via a contact sheet, then hashed). 5/12 PASS:
+  01-registers, 02-len ctr, 03-trigger, 06-overflow on trigger, 11-regs after power.
+- No regression: cpu_instrs, acid2 (0/23040), full prior gate. Gate 95 -> 100 (crossed 100).
+
+### What did NOT work / next (7 dmg_sound fail)
+- 04-sweep, 05-sweep details, 07-len sweep period sync: sweep edge cases + FS-period sync.
+- 08-len ctr during power: power/frame-sequencer-DIV coupling precision.
+- 09/10/12 wave read/trigger/write-while-on: wave channel access quirks (reading/writing
+  wave RAM while the channel is on has DMG-specific timing).
+- No audio OUTPUT yet (sample generation + cpal) — the tests only check register/timing.
+- Gotcha (again): adding roms/dmg_sound/ made the serial sweep pick them up (timeout fails);
+  excluded roms/dmg_sound from the serial find (same as mooneye/acid2).
+
 ## Round 8 — PPU STAT mode-field timing quirk (PASS 93->95)  [committed]
 
 ### What was built

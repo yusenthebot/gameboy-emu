@@ -71,6 +71,8 @@ u8 bus_read(GB *gb, u16 addr) {
     if (addr < 0xFEA0) return gb->dma_running ? 0xFF : gb->oam[addr - 0xFE00];
     if (addr < 0xFF00) return 0xFF;                       /* unusable */
     if (addr < 0xFF80) {                                  /* I/O */
+        if ((addr >= 0xFF10 && addr <= 0xFF26) || (addr >= 0xFF30 && addr <= 0xFF3F))
+            return apu_read(gb, addr);
         switch (addr) {
             case 0xFF00: return joypad_read(gb);
             case 0xFF01: case 0xFF02: return serial_read(gb, addr);
@@ -98,6 +100,9 @@ void bus_write(GB *gb, u16 addr, u8 val) {
     if (addr < 0xFEA0) { if (!gb->dma_running) gb->oam[addr - 0xFE00] = val; return; }
     if (addr < 0xFF00) { return; }                                 /* unusable */
     if (addr < 0xFF80) {                                           /* I/O */
+        if ((addr >= 0xFF10 && addr <= 0xFF26) || (addr >= 0xFF30 && addr <= 0xFF3F)) {
+            apu_write(gb, addr, val); return;
+        }
         switch (addr) {
             case 0xFF00: gb->io[0x00] = val & 0x30; return;
             case 0xFF01: case 0xFF02: serial_write(gb, addr, val); return;

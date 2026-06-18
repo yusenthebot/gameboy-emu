@@ -2,11 +2,11 @@
 
 A from-scratch, **cycle-accurate Game Boy (DMG) emulator** written in portable C11,
 built incrementally toward SameBoy-class timing precision. No GPU, no heavy
-dependencies — the whole core is ~1,500 lines of C and the test harness is fully
+dependencies — the whole core is ~1,700 lines of C and the test harness is fully
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-95%2F95%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-100%2F100%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -27,8 +27,9 @@ sub-instruction timing tests.
 | **dmg-acid2** | **0 / 23040 pixel mismatches** vs the official reference |
 | **Mooneye-GB acceptance (DMG)** | **51 / 66** |
 | **Mooneye-GB MBC** (MBC1/2/5) | **27 / 28** |
+| **Blargg `dmg_sound`** (APU) | **5 / 12** subtests |
 
-The full regression gate is **95/95 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **100/100 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## Architecture
@@ -65,6 +66,7 @@ flowchart TB
         T2["ppu.c<br/>BG · window · sprites"]
         T3["OAM DMA<br/>160 M-cycles, OAM lock"]
         T4["serial.c<br/>link port"]
+        T5["apu.c<br/>4 channels, frame seq"]
     end
 
     BUS --> CART["cart.c<br/>MBC1/2/5 + RAM"]
@@ -83,6 +85,7 @@ flowchart TB
 | `src/cart.c` | 208 | Cartridge loading, header parsing, MBC1/2/5 banking + external RAM |
 | `src/bus.c` | 119 | System memory map, I/O register dispatch, cycle-accurate OAM DMA |
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
+| `src/apu.c` | 220 | Sound: NRxx registers, NR52 power, 512Hz frame sequencer, length/envelope/sweep |
 | `src/timer.c` | 103 | DIV/TIMA/TMA/TAC with falling-edge detection and the reload-window quirks |
 | `src/main.c` | 103 | Headless entry point + the three test-harness modes |
 | `src/serial.c` | 50 | Link-port serial capture (the Blargg `Passed/Failed` channel) |
@@ -127,7 +130,7 @@ make                                  # builds ./gbemu
 ./gbemu roms/mooneye/acceptance/timer/tim00.gb --mooneye
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 95/95
+./tools/run_tests.sh                  # -> PASS: 100/100
 ```
 
 ## How tests are verified (no "looks right")
@@ -147,7 +150,7 @@ The harness uses four fully-deterministic strategies, one per ROM category:
 ## Project layout
 
 ```
-src/                     cpu, ppu, bus, cart, timer, serial, png, main
+src/                     cpu, ppu, bus, cart, timer, apu, serial, png, main
 tools/                   run_tests.sh (the gate) · imgcmp.py (PNG diff)
 roms/                    freely-redistributable test ROMs (Blargg, dmg-acid2, Mooneye)
 tests/refs/              reference images for the image-diff gate
@@ -157,13 +160,14 @@ STATUS.md, progress.md   current state + full round-by-round build log
 ## Status & roadmap
 
 **Done:** full SM83 core · per-M-cycle timing · scanline PPU (acid2-perfect) · MBC1/2/5 ·
-cycle-accurate OAM DMA · timer quirks · headless test harness.
+cycle-accurate OAM DMA · timer quirks · APU register/length/envelope/sweep core ·
+headless test harness.
 
 **Next (the remaining timing tail):**
 
 - **PPU mode timing** — variable mode-3 length, precise STAT/LYC interrupt edges, LCD-on
   timing. Likely a FIFO pixel-pipeline (per-dot) refactor — this is the next major round.
-- **APU** — the four sound channels + audio output.
+- **APU** — the wave-channel access quirks, sweep edge cases, and actual audio output (cpal).
 - **MBC3 + RTC**, battery-backed `.sav` persistence, and the MBC1 multicart variant.
 - **CGB mode** — double speed, VRAM banks, palettes, HDMA.
 - **Tooling** — a debugger, save-states, and rewind.

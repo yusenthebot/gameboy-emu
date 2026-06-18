@@ -1,0 +1,4 @@
+Blargg's dmg_sound test ROMs (gb-test-roms), by Shay Green. Freely redistributable.
+Only the subtests this emulator's APU currently passes are vendored here as a
+frame-hash gate (the test prints "Passed" on screen). Failing subtests are tracked
+in progress.md.

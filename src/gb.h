@@ -55,6 +55,30 @@ typedef struct Cart {
     bool has_battery;
 } Cart;
 
+/* APU - sound. ch index: 0=sq1(sweep) 1=sq2 2=wave 3=noise. */
+typedef struct Apu {
+    bool power;             /* NR52 bit 7 */
+    u8   fs_step;           /* frame sequencer step 0-7 */
+    bool div_bit_prev;      /* for the DIV-bit-12 falling-edge clock */
+
+    bool ch_on[4];          /* channel active (NR52 status bits 0-3) */
+    bool ch_dac[4];         /* DAC enabled for the channel */
+    u16  length[4];         /* length counter (max 64 for sq/noise, 256 for wave) */
+    bool length_en[4];      /* NRx4 bit 6 */
+
+    /* volume envelope (ch 0,1,3) */
+    u8   env_period[4], env_timer[4], env_vol[4];
+    bool env_dir[4];
+
+    /* frequency sweep (ch 0) */
+    u8   sweep_period, sweep_timer, sweep_shift;
+    bool sweep_dir, sweep_enabled, sweep_neg_used;
+    u16  sweep_shadow;
+
+    u8   reg[0x17];         /* NR10..NR52 raw = FF10..FF26 */
+    u8   wave[16];          /* FF30..FF3F */
+} Apu;
+
 typedef struct GB {
     /* CPU registers */
     u8 a, f, b, c, d, e, h, l;
@@ -82,6 +106,9 @@ typedef struct GB {
     bool tima_overflow;     /* delayed reload state */
     u8  tima_reload_delay;
     bool tima_reloaded;     /* reload happened in the current M-cycle (for write quirks) */
+
+    /* APU */
+    Apu apu;
 
     /* Serial */
     u8 sb, sc;
@@ -143,6 +170,12 @@ void ppu_write(GB *gb, u16 addr, u8 val);
 
 /* png.c */
 int png_write_gray(const char *path, int w, int h, const u8 *indices);
+
+/* apu.c */
+void apu_init(GB *gb);
+void apu_tick(GB *gb, int tcycles);
+u8   apu_read(GB *gb, u16 addr);
+void apu_write(GB *gb, u16 addr, u8 val);
 
 /* cpu.c */
 void cpu_init_postboot(GB *gb);
