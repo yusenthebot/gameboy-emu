@@ -35,6 +35,7 @@ static inline void tick(GB *g, int t) {
     g->cycles += t;
     timer_tick(g, t);
     ppu_tick(g, t);
+    dma_tick(g, t);
     serial_tick(g, t);
 }
 
@@ -443,6 +444,7 @@ void cpu_init_postboot(GB *g) {
     g->scy = 0; g->scx = 0; g->wy = 0; g->wx = 0;
     g->bgp = 0xFC; g->obp0 = 0xFF; g->obp1 = 0xFF;
     g->ppu_dot = 0; g->mode = 2; g->win_line = 0;
+    g->dma_pos = 160; g->dma_running = false; g->dma_start = 0;
     g->io[0x00] = 0x30;
     g->sc = 0x00; g->sb = 0x00;
     g->ie = 0x00;

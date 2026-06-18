@@ -21,10 +21,31 @@ static u8 joypad_read(GB *gb) {
     return res;
 }
 
-static void oam_dma(GB *gb, u8 val) {
-    u16 src = (u16)val << 8;
-    for (int i = 0; i < 0xA0; i++)
-        gb->oam[i] = bus_read(gb, src + i);
+/* Cycle-accurate OAM DMA: copies one byte per M-cycle for 160 M-cycles,
+ * after a short startup delay. While running, OAM is locked to the CPU.
+ * Writing FF46 again restarts the transfer (the in-flight one runs through
+ * the new startup delay, then the new source takes over). */
+void dma_tick(GB *gb, int tcycles) {
+    for (int m = 0; m < tcycles / 4; m++) {
+        if (gb->dma_start > 0) {
+            if (--gb->dma_start == 0) {
+                gb->dma_src = gb->dma_pending_src;
+                gb->dma_pos = 0;
+                gb->dma_running = true;
+            }
+        }
+        if (gb->dma_running && gb->dma_pos < 160) {
+            gb->oam[gb->dma_pos] = bus_read(gb, gb->dma_src + gb->dma_pos);
+            if (++gb->dma_pos >= 160) gb->dma_running = false;
+        }
+    }
+}
+
+static void dma_write(GB *gb, u8 val) {
+    gb->dma_reg = val;
+    gb->dma_pending_src = (u16)val << 8;
+    gb->dma_start = 3;        /* startup delay before the transfer begins
+                               * (calibrated to Mooneye oam_dma_timing) */
 }
 
 u8 bus_read(GB *gb, u16 addr) {
@@ -33,7 +54,7 @@ u8 bus_read(GB *gb, u16 addr) {
     if (addr < 0xC000) return cart_read(gb, addr);
     if (addr < 0xE000) return gb->wram[addr - 0xC000];
     if (addr < 0xFE00) return gb->wram[addr - 0xE000];   /* echo RAM */
-    if (addr < 0xFEA0) return gb->oam[addr - 0xFE00];
+    if (addr < 0xFEA0) return gb->dma_running ? 0xFF : gb->oam[addr - 0xFE00];
     if (addr < 0xFF00) return 0xFF;                       /* unusable */
     if (addr < 0xFF80) {                                  /* I/O */
         switch (addr) {
@@ -60,7 +81,7 @@ void bus_write(GB *gb, u16 addr, u8 val) {
     if (addr < 0xC000) { cart_write(gb, addr, val); return; }
     if (addr < 0xE000) { gb->wram[addr - 0xC000] = val; return; }
     if (addr < 0xFE00) { gb->wram[addr - 0xE000] = val; return; }  /* echo */
-    if (addr < 0xFEA0) { gb->oam[addr - 0xFE00] = val; return; }
+    if (addr < 0xFEA0) { if (!gb->dma_running) gb->oam[addr - 0xFE00] = val; return; }
     if (addr < 0xFF00) { return; }                                 /* unusable */
     if (addr < 0xFF80) {                                           /* I/O */
         switch (addr) {
@@ -69,7 +90,7 @@ void bus_write(GB *gb, u16 addr, u8 val) {
             case 0xFF04: case 0xFF05: case 0xFF06: case 0xFF07:
                 timer_write(gb, addr, val); return;
             case 0xFF0F: gb->io[IF_REG] = val & 0x1F; return;
-            case 0xFF46: gb->io[0x46] = val; oam_dma(gb, val); return;
+            case 0xFF46: gb->io[0x46] = val; dma_write(gb, val); return;
             case 0xFF40: case 0xFF41: case 0xFF42: case 0xFF43:
             case 0xFF45: case 0xFF47: case 0xFF48: case 0xFF49:
             case 0xFF4A: case 0xFF4B:

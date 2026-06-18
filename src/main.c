@@ -3,10 +3,13 @@
  * Two modes:
  *   test  (default): run until serial prints "Passed"/"Failed", exit code 0=pass.
  *   frame (--frames N): run N frames, dump framebuffer to PNG and/or raw.
+ *   mooneye (--mooneye): run to the LD B,B (0x40) breakpoint, check the
+ *           Fibonacci register signature (B=3 C=5 D=8 E=13 H=21 L=34 = pass).
  *
  * Usage:
  *   gbemu <rom.gb> [max_cycles]
  *   gbemu <rom.gb> --frames N [--png out.png] [--raw out.raw] [--cycles C]
+ *   gbemu <rom.gb> --mooneye [--cycles C]
  */
 #include "gb.h"
 #include <stdio.h>
@@ -21,7 +24,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0;
+    int frames = 0, mooneye = 0;
     const char *png_path = NULL, *raw_path = NULL;
     u64 max_cycles = 350000000ULL;
 
@@ -29,6 +32,7 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--png") && i + 1 < argc) png_path = argv[++i];
         else if (!strcmp(argv[i], "--raw") && i + 1 < argc) raw_path = argv[++i];
+        else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--cycles") && i + 1 < argc) max_cycles = strtoull(argv[++i], NULL, 0);
         else if (argv[i][0] != '-') max_cycles = strtoull(argv[i], NULL, 0);
     }
@@ -36,6 +40,25 @@ int main(int argc, char **argv) {
     memset(&gb, 0, sizeof(gb));
     if (cart_load(&gb, path) != 0) return 2;
     cpu_init_postboot(&gb);
+
+    if (mooneye) {
+        /* Mooneye signals completion with LD B,B (0x40); registers hold the
+         * Fibonacci sequence on success. */
+        int result = 1;
+        while (gb.cycles < max_cycles) {
+            if (!gb.halted && bus_read(&gb, gb.pc) == 0x40) {
+                result = (gb.b == 3 && gb.c == 5 && gb.d == 8 &&
+                          gb.e == 13 && gb.h == 21 && gb.l == 34) ? 0 : 1;
+                break;
+            }
+            cpu_step(&gb);
+        }
+        fprintf(stderr, "mooneye regs B=%d C=%d D=%d E=%d H=%d L=%d cycles=%llu\n",
+                gb.b, gb.c, gb.d, gb.e, gb.h, gb.l, (unsigned long long)gb.cycles);
+        fprintf(stderr, "RESULT: %s\n", result == 0 ? "PASS" : "FAIL");
+        cart_free(&gb);
+        return result;
+    }
 
     if (frames > 0) {
         /* Frame-dump mode. */

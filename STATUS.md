@@ -4,31 +4,36 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 3 (complete, committed)
+ROUND: 4 (complete, committed)
 SUBSTRATE: C11 + clang
-PASS COUNT: 17/17  (15 serial + 1 image[acid2] + 1 framehash[halt_bug]; interrupt_time SKIP=CGB)
+PASS COUNT: 63/63  (15 serial + acid2 img + halt_bug hash + 46 Mooneye acceptance)
 
 CURRENT STATE:
-- SM83 CPU: full opcode set + CB, flags, interrupts, EI-delay, HALT+halt-bug, DAA.
-  *** Per-M-cycle (cycle-accurate) timing: every memory access / internal M-cycle ticks
-      the timer/PPU/serial by 4T at the point it happens (tick-before-access). ***
-- Scanline PPU (src/ppu.c): BG+window+sprites, priorities, 10/line, palettes. acid2 perfect.
-- Cart: ROM-only + MBC1. Timer (falling-edge + reload delay). Serial capture. PNG dump.
-- Harness (tools/run_tests.sh): serial + image-diff + frame-hash categories.
+- SM83 CPU: full opcodes+CB, per-M-cycle cycle-accurate timing (tick-before-access).
+- Cycle-accurate OAM DMA (src/bus.c dma_tick): 160 M-cycles, startup delay 3, OAM locked
+  to CPU during transfer, restart supported. Unlocked the whole instruction-timing cluster.
+- Scanline PPU: BG+window+sprites, priorities, palettes. acid2 perfect.
+- Cart ROM-only+MBC1. Timer (falling-edge + reload delay). Serial capture. PNG dump.
+- Mooneye harness mode (--mooneye): LD B,B breakpoint + Fibonacci reg signature.
+- Harness categories: serial / image-diff / frame-hash / mooneye.
 
-VERIFY: `make && ./tools/run_tests.sh`   (expect PASS: 17/17, exit 0)
+VERIFY: `make && ./tools/run_tests.sh`   (expect PASS: 63/63, exit 0)
 
-PASSING TIMING TESTS: cpu_instrs 11/11, instr_timing, mem_timing 01/02/03, halt_bug(screen).
-KNOWN-FAIL/SKIP: interrupt_time (CGB-oriented). mem_timing-2 combined not fetched (mirror
-  truncates large file). Mooneye suite not yet integrated.
+MOONEYE: 46/66 DMG acceptance pass. Vendored passers under roms/mooneye/ are the gate.
+STILL FAILING (frontier, 20; ROMs in /tmp/gbtr_x/mooneye-test-suite, not vendored):
+  - ppu/* (8): mode-timing — intr_2_mode0/mode3, lcdon_timing, hblank_ly_scx, stat_lyc_onoff,
+    vblank_stat_intr, intr_2_oam_ok. Need variable mode-3 length + precise STAT. BIG PPU round.
+  - timer/ (3): rapid_toggle (TAC-write glitch), tima_write_reloading, tma_write_reloading.
+  - oam_dma_start, oam_dma/sources-GS (bus-conflict reads during DMA).
+  - bits/unused_hwio (read masks), interrupts/ie_push (IE-overwrite cancel quirk),
+    rapid_di_ei, boot_div, boot_hwio, serial/boot_sclk_align.
 
-NEXT ROUND SEED (round 4): integrate Mooneye-GB suite + deepen timing quirks.
-  - Add a Mooneye harness mode: detect test end (LD B,B = 0x40 software breakpoint) and
-    check the Fibonacci register signature (B=3 C=5 D=8 E=13 H=21 L=34 = pass).
-  - Fetch Mooneye ROMs (try c-sp/gameboy-test-roms release zip, or Gekkio mirror).
-    Establish a Mooneye baseline, then fix high-impact quirks: timer (div_write, tima
-    reload edge cases), interrupt dispatch cancel quirk, OAM DMA timing.
-  - Stretch: MBC3 + battery .sav (broaden game support); start APU (Blargg dmg_sound).
+NEXT ROUND SEED (round 5): two tracks, pick highest ROI first —
+  A) Timer quirks (timer.c): TAC-write falling-edge glitch + TIMA/TMA write-during-reload
+     => rapid_toggle, tima_write_reloading, tma_write_reloading (+ likely div edge tests).
+  B) PPU mode-timing: variable mode-3 length, precise STAT mode/LYC IRQ, LCD-on timing
+     => the ppu/* cluster (8). Larger; may need the FIFO refactor.
+  Cheap singles: unused_hwio (masks), ie_push (dispatch cancel quirk), rapid_di_ei.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

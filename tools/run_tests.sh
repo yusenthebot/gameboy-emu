@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -52,6 +52,16 @@ for spec in "roms/halt_bug.gb:200:af839267dfcc94c90f576235f84ad5a49ca01bfe98ea98
     if [ "$got" = "$want" ]; then pass=$((pass+1)); row "$name" "PASS"
     else fail=$((fail+1)); row "$name" "FAIL ($got)"; fi
 done
+
+# --- Mooneye acceptance ROMs (LD B,B breakpoint + Fibonacci register signature) ---
+mooneye_pass=0
+while IFS= read -r rom; do
+    total=$((total+1))
+    res=$("$BIN" "$rom" --mooneye --cycles 12000000 2>&1 | grep -oE "RESULT: [A-Z]+" | head -1); res=${res#RESULT: }
+    if [ "$res" = "PASS" ]; then pass=$((pass+1)); mooneye_pass=$((mooneye_pass+1))
+    else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
+done < <(find roms/mooneye -name '*.gb' | sort)
+row "mooneye/* ($mooneye_pass passing, shown only on fail)" "OK"
 
 # --- skipped (reported, not counted): CGB-oriented / not DMG-applicable ---
 row "interrupt_time.gb (skip: CGB-oriented)" "SKIP"

@@ -93,13 +93,52 @@
 - Quirks NOT yet modeled (next targets): interrupt dispatch cancel/IE-overwrite quirk,
   fine timer write-during-reload edge cases, OAM DMA timing, variable mode-3 length.
 
+## Round 4 — Mooneye integration + cycle-accurate OAM DMA (PASS 17->63)  [committed]
+
+### What was built
+- `--mooneye` harness mode (main.c): run to the LD B,B (0x40) software breakpoint, then
+  check the Fibonacci register signature (B3 C5 D8 E13 H21 L34 = pass). Mooneye's protocol.
+- Cycle-accurate OAM DMA (src/bus.c `dma_tick` + state in gb.h): 160 M-cycles, one byte/
+  M-cycle, startup delay = 3 M-cycles (calibrated to oam_dma_timing), OAM locked to the CPU
+  (reads $FF, writes ignored) while running, restart on re-write of FF46. Wired into cpu.c tick().
+- run_tests.sh: added a mooneye category (vendored passers under roms/mooneye/).
+- Vendored 46 passing DMG Mooneye acceptance ROMs + ATTRIBUTION (MIT, Gekkio).
+
+### The key insight (why OAM DMA mattered so much)
+- Diagnosed the instruction-timing cluster (push/call/jp/ret/rst/reti/add_sp/ld_hl_sp +
+  cc variants) by fetching push_timing.s: Mooneye uses OAM DMA as the timing PROBE — it
+  starts a DMA (locking OAM), does the instruction writing into OAM, aligned so the DMA
+  ends mid-instruction, then reads OAM back to see exactly which M-cycle each access hit.
+  Instant DMA -> OAM never locks -> the whole cluster fails. One feature flipped ~15 tests.
+- oam_dma_timing.s gave the exact calibration: read at write+161 must see $FF (running),
+  write+162 must see $01 (done) -> startup delay must be 3 (delay=2 ended one cycle early).
+
+### Verified (real runs)
+- No regression: cpu_instrs, instr_timing, mem_timing, acid2 (0/23040), halt_bug all green.
+- Mooneye DMG acceptance: 31 -> 46 passing (OAM DMA added the instruction-timing cluster).
+- `./tools/run_tests.sh` => PASS: 63/63, exit 0.
+
+### What did NOT work / notes
+- Network: the 3.76MB test-roms zip would not download in one shot (flaky travel link kept
+  timing out ~1.4MB). Solved with a resilient 100KB-chunk range-request downloader that
+  refetches only missing chunks until zip integrity passes (4 passes). Reusable pattern.
+- 20 Mooneye tests still fail (frontier; see STATUS): ppu/* mode-timing (8), timer write-
+  reload quirks (3), oam_dma_start + sources, unused_hwio, ie_push, rapid_di_ei, boot_*.
+
 ## Frontier
 
-- CURRENT CEILING: cycle-accurate at M-cycle granularity; rendering perfect (acid2).
-  Passes Blargg cpu_instrs/instr_timing/mem_timing + halt_bug. ~17 tests.
-- NEXT FRONTIER (round 4): integrate the Mooneye-GB suite (LD B,B breakpoint + Fibonacci
-  register signature harness), baseline it, and fix the high-impact timing quirks it
-  exposes (timer edge cases, interrupt cancel quirk, OAM DMA). Then MBC3+save / APU.
+- CURRENT CEILING: cycle-accurate CPU + OAM DMA; 46/66 Mooneye DMG acceptance; acid2 perfect.
+  This is genuinely into SameBoy-tier territory for CPU/DMA timing.
+- NEXT FRONTIER (round 5): (A) timer quirks (TAC-write glitch + reload-window writes, 3
+  tests, small) and/or (B) PPU mode-timing cluster (8 tests, larger — variable mode-3
+  length + precise STAT, likely the FIFO pixel-pipeline refactor). Cheap singles: unused_hwio,
+  ie_push, rapid_di_ei.
+- LADDER beyond: FIFO pixel pipeline + STAT quirks (Mooneye PPU, Wilbert Pol, mealybug) ->
+  APU + cpal + Blargg dmg_sound -> MBC3/5 + RTC + .sav -> CGB mode (double speed, HDMA,
+  palettes; fixes interrupt_time) -> SDL frontend + input + real games -> debugger + savestates.
+- AMBITION CRITIC: CPU/DMA timing is now strong, but the PPU is still fixed-timing (acid2
+  passes because it has no mid-line tricks). The mid-scanline timing tail (FIFO, mode-3
+  length, STAT quirks) is the next real climb — that's where "SameBoy-class" is won.
 - FRONTIER LADDER (updated): Mooneye timing/oam/ppu -> MBC2/3/5+RTC+save -> APU+cpal+
   dmg_sound -> FIFO pixel pipeline + exact mode-3 timing + STAT quirks (Mooneye PPU,
   Wilbert Pol) -> CGB mode (double speed, VRAM banks, HDMA, palettes; fixes interrupt_time)

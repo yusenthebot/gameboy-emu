@@ -93,6 +93,14 @@ typedef struct GB {
     bool frame_ready;       /* set when a full frame has been rendered */
     u64 frame_count;        /* frames completed (entered VBlank) */
 
+    /* OAM DMA (cycle-accurate: 160 M-cycles, OAM locked during transfer) */
+    u8  dma_reg;            /* last value written to FF46 */
+    u16 dma_src;            /* active source base */
+    u16 dma_pending_src;    /* source for a (re)start after the startup delay */
+    int dma_pos;            /* next byte index 0..160 (160 = done) */
+    int dma_start;          /* startup-delay M-cycles before (re)start */
+    bool dma_running;       /* transfer in progress -> OAM locked to CPU */
+
     /* Joypad */
     u8 joyp_select;
     u8 buttons;             /* bit set = pressed */
@@ -114,6 +122,7 @@ void cart_write(GB *gb, u16 addr, u8 val);
 /* bus.c */
 u8   bus_read(GB *gb, u16 addr);
 void bus_write(GB *gb, u16 addr, u8 val);
+void dma_tick(GB *gb, int tcycles);
 
 /* timer.c */
 void timer_tick(GB *gb, int tcycles);

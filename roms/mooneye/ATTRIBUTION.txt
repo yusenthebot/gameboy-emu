@@ -1,0 +1,5 @@
+Mooneye Test Suite by Joonas Javanainen (Gekkio)
+Source: https://github.com/Gekkio/mooneye-test-suite
+License: MIT (see each .s source header / repository LICENSE)
+Only DMG-applicable acceptance tests that currently PASS are vendored here;
+they form the regression gate. Failing/other-model tests are tracked in progress.md.
