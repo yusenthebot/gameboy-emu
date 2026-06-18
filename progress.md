@@ -152,6 +152,23 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 15 — completeness sweep (PASS 115->118)  [committed]
+
+### What was done
+- The easy/medium feature wins are exhausted, so ran a completeness critic: swept EVERY DMG
+  test ROM across mooneye + same-suite + wilbertpol with --mooneye, listing passers whose
+  name isn't already gated. Found +3 free passers (no emulator code needed):
+  - same-suite/apu/channel_3/channel_3_wave_ram_dac_on_rw (first SameBoy-suite test gated)
+  - same-suite/apu/div_write_trigger_10
+  - wilbertpol/emulator-only/mbc1_rom_4banks
+- Vendored them + new roms/same-suite category (SameSuite, LIJI32, MIT). Wired same-suite into
+  the mooneye sweep; excluded it from the serial sweep (the recurring double-count trap).
+- Attempted boot_div via a div_counter sweep (0xAB00..0xABFF) — all FAIL: it needs boot-handoff
+  timing modeling, not just the DIV value. Reverted the hack.
+
+### Verified
+- No regression; gate 115 -> 118. No new emulator code (pure coverage discovery).
+
 ## Round 14 — boot/power-on state (PASS 113->115)  [committed]
 
 ### What was built

@@ -4,11 +4,13 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 14 (complete, committed) — boot/power-on state (boot_hwio + boot_regs-dmg)
+ROUND: 15 (complete, committed) — completeness sweep (+3 ungated passers)
 SUBSTRATE: C11 + clang
-PASS COUNT: 115/115  (15 serial + acid2 + 9 framehash + 2 game + 88 Mooneye/WP)
-  Round 14: post-boot HWIO fixes — JOYP io[0x00]=0x00 (reads 0xCF), APU ch_on[0]=true
-  (NR52 reads 0xF1). +boot_hwio-dmgABCmgb, +boot_regs-dmg (wilbertpol). No regression.
+PASS COUNT: 118/118  (15 serial + acid2 + 9 framehash + 2 game + 91 Mooneye/WP/SameSuite)
+  Round 15: completeness critic — swept ALL suites for DMG passers not yet gated. Found +3:
+  same-suite/apu/channel_3_wave_ram_dac_on_rw, same-suite/apu/div_write_trigger_10 (first
+  SameBoy-suite tests gated!), wilbertpol/emulator-only/mbc1_rom_4banks. boot_div tuning
+  failed (needs boot-handoff timing, not just DIV value). No new emulator code; no regression.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -87,11 +89,14 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 15): the easy/medium wins are largely exhausted — pick a hard frontier
-  and make real +1-2 progress (this IS "the long timing tail"). Highest-leverage: the
-  sprite-penalty FIFO fetcher-timing sim (compute mode-3 length from sprites; data in
-  /tmp/ppu_src/intr_2_mode0_timing_sprites.s). Or diversify: APU wave channel, or the
-  interactive frontend (note: not headlessly verifiable — better when owner can test it).
+NEXT ROUND SEED (round 16): the free passers are now ALL gated (completeness sweep done).
+  Remaining = the hard tail, each a real multi-step feature: (1) sprite mode-3 penalty / FIFO
+  fetcher-timing sim (highest leverage — unlocks intr_2_mode0_sprites + many wilbertpol gpu;
+  data in /tmp/ppu_src/intr_2_mode0_timing_sprites.s); (2) APU wave channel freq-timer + DMG
+  wave-RAM access window (dmg_sound 09/10/12 + more same-suite ch3); (3) lcdon_timing (LY+STAT
+  +OAM+VRAM first-frame; needs VRAM blocking too); (4) sample-accurate APU channels (same-suite
+  ~74 remaining). Pick one and push it as a genuine multi-step effort. Consider surfacing to
+  the owner that the test tail is now hard + offering the interactive frontend (needs them present).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

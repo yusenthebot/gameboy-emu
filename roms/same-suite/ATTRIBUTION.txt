@@ -1,0 +1,4 @@
+SameSuite by Lior Halphon (LIJI32), the SameBoy author. MIT-licensed.
+Source: https://github.com/LIJI32/SameSuite  (also bundled in c-sp/gameboy-test-roms).
+Uses the Mooneye-style LD B,B / Fibonacci register signature. Only DMG tests this
+emulator currently passes are vendored here.
