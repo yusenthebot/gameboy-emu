@@ -1,6 +1,6 @@
 /* main.c - entry point.
  *
- * Two modes:
+ * Three modes:
  *   test  (default): run until serial prints "Passed"/"Failed", exit code 0=pass.
  *   frame (--frames N): run N frames, dump framebuffer to PNG and/or raw.
  *   mooneye (--mooneye): run to the LD B,B (0x40) breakpoint, check the
