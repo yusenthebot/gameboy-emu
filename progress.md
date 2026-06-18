@@ -34,11 +34,42 @@
   mem_timing-2, and most Mooneye sub-instruction timing tests. Migrating the bus to
   per-M-cycle ticking is a core frontier item once the PPU exists.
 
+## Round 2 — scanline PPU + dmg-acid2 gate (PASS 12->13)  [committed]
+
+### What was built
+- `src/ppu.c` (replaces ppu_lite) — full scanline renderer: BG, window (own line
+  counter), sprites with X/Y flip, 8x16, OBP0/1, BG-vs-OBJ priority, lower-X+OAM-index
+  draw priority, 10-sprites/line limit. Mode state machine (2/3/0/1), STAT + VBlank IRQ.
+  Renders each line at the mode3->0 edge into `gb->fb` (160x144 shade indices 0..3).
+- `src/png.c` — dependency-free 8-bit grayscale PNG writer (uncompressed zlib "stored"
+  blocks + hand-rolled crc32/adler32). For visual frame dumps you can `open`.
+- `src/main.c` — added frame-dump mode: `--frames N [--png p][--raw p][--cycles C]`.
+- `tools/imgcmp.py` — pure-Python PNG decoder (handles 2-bit grayscale + all filters) that
+  diffs the official reference against the emulator raw dump. Writes a diff map PNG too.
+- `tools/run_tests.sh` — now runs serial ROMs AND image ROMs (acid2). Gate = 13/13.
+
+### Verified (real runs)
+- dmg-acid2: **0 / 23040 pixel mismatches** vs official reference-dmg.png, first run.
+  Frame shade histogram {0:12849, 1:6254, 2:188, 3:3749} — a real image, not degenerate.
+- cpu_instrs frame dump renders the on-screen "01:ok 02:ok..." text correctly.
+- Regression: `./tools/run_tests.sh` => PASS: 13/13, exit 0 (no CPU regression).
+
+### What did NOT work / notes
+- No free Tetris ROM (copyrighted) — used dmg-acid2 as the deterministic visual gate
+  instead (harder + has an official reference). A free homebrew title-screen + frame-hash
+  check can be added later if a ROM is fetched.
+- Rendering samples registers once per line (at mode3->0). Fine for acid2 (no mid-line
+  register tricks). Mid-scanline SCX/SCY/palette changes and variable mode-3 length are
+  part of the sub-instruction timing frontier.
+- DESIGN DEBT still open: subsystems ticked once per instruction (not per M-cycle).
+  Blocks mem_timing / Mooneye sub-instruction tests. This is round 3's main target.
+
 ## Frontier
 
-- CURRENT CEILING: cycle-counted CPU (instruction granularity); free-running LY; no pixels.
-- NEXT FRONTIER (round 2): real scanline PPU — BG/window/OBJ rendering to 160x144,
-  PNG frame dump, dmg-acid2 pixel-diff gate, Tetris/homebrew title screen.
+- CURRENT CEILING: correct *rendering* (acid2 perfect) + instruction-granularity timing.
+  No sub-instruction (M-cycle) memory-access timing yet.
+- NEXT FRONTIER (round 3): per-M-cycle bus ticking -> mem_timing/mem_timing-2 + Mooneye
+  timing; grow the gate with the Mooneye-GB suite. THE long timing tail starts here.
 - FRONTIER LADDER (ambition x feasibility, rough order):
   1. Scanline PPU + rendering + acid2 + playable title screen.        <- round 2
   2. MBC2/3/5 + RTC + battery save (.sav) -> more games, save states.

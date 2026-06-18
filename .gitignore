@@ -3,4 +3,5 @@ src/*.o
 *.sav
 *.png
 !docs/**/*.png
+!tests/refs/*.png
 .DS_Store

@@ -22,15 +22,15 @@ See `STATUS.md` (current state + next round) and `progress.md` (full log + front
 | Timer           | DIV/TIMA/TMA/TAC, falling-edge + reload delay                |
 | Serial          | Headless capture (Passed/Failed to stdout)                  |
 | Cartridge       | ROM-only + MBC1                                              |
-| PPU             | ppu_lite (free-running LY/STAT/VBlank, no rendering yet)     |
-| Test ROMs       | cpu_instrs 11/11, instr_timing — 12/12 green                |
+| PPU             | Scanline render: BG + window + sprites, priorities, palettes |
+| Test ROMs       | cpu_instrs 11/11, instr_timing, dmg-acid2 — 13/13 green      |
 
 ## Layout
 
 ```
-src/        cpu, bus, cart, timer, serial, ppu_lite, main
-tools/      run_tests.sh (regression gate)
-roms/       free test ROMs (Blargg)
+src/        cpu, bus, cart, timer, serial, ppu, png, main
+tools/      run_tests.sh (gate), imgcmp.py (PNG diff)
+roms/       free test ROMs (Blargg, dmg-acid2)
 docs/       design notes
 ```
 

@@ -84,9 +84,14 @@ typedef struct GB {
     /* Serial */
     u8 sb, sc;
 
-    /* PPU-lite (free-running scanline/LY for round 1) */
+    /* PPU */
     u32 ppu_dot;            /* dot within current frame [0,70224) */
     u8  ly, lyc, stat, lcdc, scx, scy, wx, wy, bgp, obp0, obp1;
+    u8  mode;               /* current PPU mode 0..3 */
+    u8  win_line;           /* window internal line counter */
+    u8  fb[160 * 144];      /* rendered shade indices 0..3 (0=light,3=dark) */
+    bool frame_ready;       /* set when a full frame has been rendered */
+    u64 frame_count;        /* frames completed (entered VBlank) */
 
     /* Joypad */
     u8 joyp_select;
@@ -120,10 +125,13 @@ void serial_tick(GB *gb, int tcycles);
 u8   serial_read(GB *gb, u16 addr);
 void serial_write(GB *gb, u16 addr, u8 val);
 
-/* ppu_lite.c */
+/* ppu.c */
 void ppu_tick(GB *gb, int tcycles);
 u8   ppu_read(GB *gb, u16 addr);
 void ppu_write(GB *gb, u16 addr, u8 val);
+
+/* png.c */
+int png_write_gray(const char *path, int w, int h, const u8 *indices);
 
 /* cpu.c */
 void cpu_init_postboot(GB *gb);
