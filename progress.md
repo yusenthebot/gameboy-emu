@@ -125,14 +125,41 @@
 - 20 Mooneye tests still fail (frontier; see STATUS): ppu/* mode-timing (8), timer write-
   reload quirks (3), oam_dma_start + sources, unused_hwio, ie_push, rapid_di_ei, boot_*.
 
+## Round 5 — timer write-reload quirks + HWIO read masks (PASS 63->66)  [committed]
+
+### What was built
+- timer.c: shared `timer_signal`/`tima_step` helpers; TAC-write and DIV-write now detect a
+  falling edge on (selected DIV bit & enable) -> glitch TIMA increment. Added `tima_reloaded`
+  flag (set on the reload cycle, cleared each M-cycle tick) so FF05/FF06 writes can honor:
+  TIMA write on the reload cycle is ignored (reload wins); TMA write on the reload cycle
+  makes the reload use the new TMA. (Writes during the delay still cancel the reload.)
+- bus.c: HWIO read-OR mask table (HWIO_OR[0x80]) — unmapped I/O reads 0xFF, sound regs force
+  their unused bits to 1. Makefile: -Wno-initializer-overrides for the range-designator table.
+
+### Verified (real runs)
+- New PASS: timer/tima_write_reloading, timer/tma_write_reloading, bits/unused_hwio-GS.
+- No regression: cpu_instrs, mem_timing, instr_timing, acid2 (0/23040), all prior mooneye.
+- `./tools/run_tests.sh` => PASS: 66/66, exit 0. Mooneye DMG acceptance 46 -> 49.
+
+### What did NOT work / deferred (with reasons)
+- timer/rapid_toggle: TAC-disable glitch is implemented but the test asserts an exact bc
+  ($FFD9) => the cumulative glitch count must be cycle-perfect; mine is off by ~1 near a
+  div-bit-9 boundary. Needs finer instrumentation. Deferred.
+- interrupts/ie_push: the IE-overwrite cancel quirk has subtle multi-round semantics (which
+  PC byte hits $FFFF, when IE is sampled to pick the vector vs cancel to PC=$0000). Risk of
+  regressing passing interrupt tests; deferred to a focused study.
+- oam_dma_start / oam_dma/sources-GS: precise DMA lock-start cycle (probed by executing code
+  from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
+  DMA-conflict model. Deferred.
+
 ## Frontier
 
-- CURRENT CEILING: cycle-accurate CPU + OAM DMA; 46/66 Mooneye DMG acceptance; acid2 perfect.
-  This is genuinely into SameBoy-tier territory for CPU/DMA timing.
-- NEXT FRONTIER (round 5): (A) timer quirks (TAC-write glitch + reload-window writes, 3
-  tests, small) and/or (B) PPU mode-timing cluster (8 tests, larger — variable mode-3
-  length + precise STAT, likely the FIFO pixel-pipeline refactor). Cheap singles: unused_hwio,
-  ie_push, rapid_di_ei.
+- CURRENT CEILING: cycle-accurate CPU + OAM DMA + timer quirks; 49/66 Mooneye DMG; acid2 perfect.
+  SameBoy-tier for CPU/DMA/timer timing. The PPU is still the weak link (fixed mode timing).
+- NEXT FRONTIER (round 6): PPU mode-timing cluster (ppu/*, 8 tests) — the real remaining
+  frontier. Variable mode-3 length, precise STAT mode/LYC IRQ edges, LCD-on timing. Strongly
+  consider the FIFO pixel-pipeline (per-dot) refactor as the substrate — it makes mode-3
+  length + STAT quirks fall out and sets up Wilbert Pol / mealybug-tearoom later.
 - LADDER beyond: FIFO pixel pipeline + STAT quirks (Mooneye PPU, Wilbert Pol, mealybug) ->
   APU + cpal + Blargg dmg_sound -> MBC3/5 + RTC + .sav -> CGB mode (double speed, HDMA,
   palettes; fixes interrupt_time) -> SDL frontend + input + real games -> debugger + savestates.

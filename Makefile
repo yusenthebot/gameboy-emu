@@ -1,6 +1,6 @@
 # Game Boy emulator - build
 CC      ?= clang
-CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wno-unused-parameter -g
+CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wno-unused-parameter -Wno-initializer-overrides -g
 SRC     := $(wildcard src/*.c)
 OBJ     := $(SRC:.c=.o)
 BIN     := gbemu

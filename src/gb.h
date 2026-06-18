@@ -80,6 +80,7 @@ typedef struct GB {
     u8  tima, tma, tac;
     bool tima_overflow;     /* delayed reload state */
     u8  tima_reload_delay;
+    bool tima_reloaded;     /* reload happened in the current M-cycle (for write quirks) */
 
     /* Serial */
     u8 sb, sc;

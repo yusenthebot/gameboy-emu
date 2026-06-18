@@ -3,6 +3,20 @@
 
 #define IF_REG 0x0F   /* index into gb->io for 0xFF0F (interrupt flags) */
 
+/* Read-OR masks for I/O registers handled by the default path: unmapped
+ * registers read as 0xFF, and sound registers force their unused bits to 1.
+ * (JOYP/SC/TAC/IF/STAT apply their own masks in their dedicated handlers.) */
+static const u8 HWIO_OR[0x80] = {
+    [0x00 ... 0x7F] = 0xFF,                    /* unmapped -> all 1s */
+    [0x10] = 0x80, [0x11] = 0x3F, [0x12] = 0x00, [0x13] = 0xFF, [0x14] = 0xBF,
+    [0x16] = 0x3F, [0x17] = 0x00, [0x18] = 0xFF, [0x19] = 0xBF,
+    [0x1A] = 0x7F, [0x1B] = 0xFF, [0x1C] = 0x9F, [0x1D] = 0xFF, [0x1E] = 0xBF,
+    [0x20] = 0xFF, [0x21] = 0x00, [0x22] = 0x00, [0x23] = 0xBF,
+    [0x24] = 0x00, [0x25] = 0x00, [0x26] = 0x70,
+    [0x30 ... 0x3F] = 0x00,                    /* wave RAM fully readable */
+    [0x46] = 0x00,                             /* DMA reg reads back its value */
+};
+
 static u8 joypad_read(GB *gb) {
     u8 sel = gb->io[0x00] & 0x30;
     u8 res = 0xC0 | sel | 0x0F; /* bits 6,7 high; lower nibble defaults high */
@@ -68,7 +82,7 @@ u8 bus_read(GB *gb, u16 addr) {
             case 0xFF49: case 0xFF4A: case 0xFF4B:
                 return ppu_read(gb, addr);
             default:
-                return gb->io[addr - 0xFF00];
+                return gb->io[addr - 0xFF00] | HWIO_OR[addr - 0xFF00];
         }
     }
     if (addr < 0xFFFF) return gb->hram[addr - 0xFF80];
