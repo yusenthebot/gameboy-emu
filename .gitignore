@@ -1,0 +1,6 @@
+src/*.o
+/gbemu
+*.sav
+*.png
+!docs/**/*.png
+.DS_Store
