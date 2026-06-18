@@ -67,7 +67,7 @@ flowchart TB
         T4["serial.c<br/>link port"]
     end
 
-    BUS --> CART["cart.c<br/>MBC1 + RAM"]
+    BUS --> CART["cart.c<br/>MBC1/2/5 + RAM"]
     T2 --> FB["framebuffer 160×144"]
     FB --> PNG["png.c<br/>grayscale PNG"]
     CART -.-> BUS
@@ -79,7 +79,7 @@ flowchart TB
 | File | Lines | Responsibility |
 |------|------:|----------------|
 | `src/cpu.c` | 451 | SM83 core: every opcode, exact flags, interrupt dispatch, the per-M-cycle clock |
-| `src/ppu.c` | 223 | Scanline PPU: background, window, sprites, priorities, palettes → 160×144 framebuffer |
+| `src/ppu.c` | 244 | Scanline PPU: BG, window, sprites, priorities, palettes, mode/STAT timing → 160×144 |
 | `src/cart.c` | 208 | Cartridge loading, header parsing, MBC1/2/5 banking + external RAM |
 | `src/bus.c` | 119 | System memory map, I/O register dispatch, cycle-accurate OAM DMA |
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
@@ -127,7 +127,7 @@ make                                  # builds ./gbemu
 ./gbemu roms/mooneye/acceptance/timer/tim00.gb --mooneye
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 66/66
+./tools/run_tests.sh                  # -> PASS: 95/95
 ```
 
 ## How tests are verified (no "looks right")
