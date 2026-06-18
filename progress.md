@@ -64,12 +64,49 @@
 - DESIGN DEBT still open: subsystems ticked once per instruction (not per M-cycle).
   Blocks mem_timing / Mooneye sub-instruction tests. This is round 3's main target.
 
+## Round 3 — per-M-cycle cycle-accurate timing (PASS 13->17)  [committed]
+
+### What was built
+- Rewrote `src/cpu.c` timing model: a single `tick(g,t)` advances timer/PPU/serial; every
+  memory access (`rd`/`wr`/`imm8`/`imm16`/`push16`/`pop16`) ticks 4T, and every internal
+  M-cycle (INC/DEC rr, ADD HL, PUSH/RST/RET/CALL internal, conditional-taken penalty,
+  ADD SP, LD HL/SP, interrupt dispatch) ticks explicitly. **tick-before-access** (access on
+  the M-cycle's last T). cpu_step no longer end-ticks; cycle budget emerges from ticks.
+- Interrupt service ticks 2+push(2)+1 = 5 M-cycles (20T).
+- Harness: added a frame-hash category (sha256 of a deterministic frame, verified once).
+  Excludes screen-only ROMs from the serial sweep; reports interrupt_time as SKIP.
+
+### Verified (real runs)
+- NO regression: cpu_instrs 11/11, instr_timing, acid2 0/23040 all still green.
+- NEW PASS: mem_timing 01-read / 02-write / 03-modify (serial) — sub-instruction memory
+  timing now correct (was all FAIL under instruction-stepped). tick-before-access was the
+  right polarity on the first try.
+- halt_bug: screen shows "Passed" (HALT-bug correct); gated via frame-hash (af839267...,
+  deterministic across frames 150/200/250 and repeat runs).
+- `./tools/run_tests.sh` => PASS: 17/17, exit 0.
+
+### What did NOT work / notes
+- interrupt_time: screen shows "Failed" — it's CGB-oriented (interrupt timing differs
+  DMG vs CGB double-speed). Deferred to a CGB round, marked SKIP (not chased on DMG).
+- Combined mem_timing.gb + mem_timing-2.gb: retrio mirror keeps truncating the larger
+  files; used the 3 individual mem_timing ROMs instead (cleaner, 3 gate entries).
+- Quirks NOT yet modeled (next targets): interrupt dispatch cancel/IE-overwrite quirk,
+  fine timer write-during-reload edge cases, OAM DMA timing, variable mode-3 length.
+
 ## Frontier
 
-- CURRENT CEILING: correct *rendering* (acid2 perfect) + instruction-granularity timing.
-  No sub-instruction (M-cycle) memory-access timing yet.
-- NEXT FRONTIER (round 3): per-M-cycle bus ticking -> mem_timing/mem_timing-2 + Mooneye
-  timing; grow the gate with the Mooneye-GB suite. THE long timing tail starts here.
+- CURRENT CEILING: cycle-accurate at M-cycle granularity; rendering perfect (acid2).
+  Passes Blargg cpu_instrs/instr_timing/mem_timing + halt_bug. ~17 tests.
+- NEXT FRONTIER (round 4): integrate the Mooneye-GB suite (LD B,B breakpoint + Fibonacci
+  register signature harness), baseline it, and fix the high-impact timing quirks it
+  exposes (timer edge cases, interrupt cancel quirk, OAM DMA). Then MBC3+save / APU.
+- FRONTIER LADDER (updated): Mooneye timing/oam/ppu -> MBC2/3/5+RTC+save -> APU+cpal+
+  dmg_sound -> FIFO pixel pipeline + exact mode-3 timing + STAT quirks (Mooneye PPU,
+  Wilbert Pol) -> CGB mode (double speed, VRAM banks, HDMA, palettes; fixes interrupt_time)
+  -> SDL frontend + input + real games (frame-hash playability) -> debugger + save-states
+  + rewind.
+- AMBITION CRITIC: timing is now real (the hard part has begun), but only the Blargg tier.
+  Mooneye is far stricter and is the true measure of "SameBoy-class". That's the climb.
 - FRONTIER LADDER (ambition x feasibility, rough order):
   1. Scanline PPU + rendering + acid2 + playable title screen.        <- round 2
   2. MBC2/3/5 + RTC + battery save (.sav) -> more games, save states.

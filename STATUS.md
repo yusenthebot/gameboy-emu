@@ -4,29 +4,31 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 2 (complete, committed)
+ROUND: 3 (complete, committed)
 SUBSTRATE: C11 + clang
-PASS COUNT: 13/13  (12 serial: cpu_instrs 11/11 + combined + instr_timing; 1 image: dmg-acid2)
+PASS COUNT: 17/17  (15 serial + 1 image[acid2] + 1 framehash[halt_bug]; interrupt_time SKIP=CGB)
 
 CURRENT STATE:
-- SM83 CPU core: full opcode set + CB, flags, interrupts, EI-delay, HALT+halt-bug, DAA.
-- Scanline PPU (src/ppu.c): BG + window + sprites, all LCDC features, palettes, X/Y flip,
-  8x16 sprites, sprite priority (lower X then OAM idx) + 10/line limit, BG-priority.
-  Renders 160x144 shade-index framebuffer at the mode3->0 transition per line.
-- PNG writer (src/png.c, stored-zlib, no deps); --frames/--png/--raw dump mode in main.
-- Memory bus, MBC1 cart, timer (falling-edge + reload delay), serial capture.
-- Model: instruction-stepped (subsystems ticked once per instruction).
+- SM83 CPU: full opcode set + CB, flags, interrupts, EI-delay, HALT+halt-bug, DAA.
+  *** Per-M-cycle (cycle-accurate) timing: every memory access / internal M-cycle ticks
+      the timer/PPU/serial by 4T at the point it happens (tick-before-access). ***
+- Scanline PPU (src/ppu.c): BG+window+sprites, priorities, 10/line, palettes. acid2 perfect.
+- Cart: ROM-only + MBC1. Timer (falling-edge + reload delay). Serial capture. PNG dump.
+- Harness (tools/run_tests.sh): serial + image-diff + frame-hash categories.
 
-VERIFY: `make && ./tools/run_tests.sh`   (expect PASS: 13/13, exit 0)
-        acid2: ./gbemu roms/acid2/dmg-acid2.gb --frames 30 --raw /tmp/a.raw &&
-               python3 tools/imgcmp.py tests/refs/dmg-acid2-ref.png /tmp/a.raw  (0 mismatches)
+VERIFY: `make && ./tools/run_tests.sh`   (expect PASS: 17/17, exit 0)
 
-NEXT ROUND SEED (round 3): grow the gate + start true cycle accuracy.
-  - Fetch Mooneye-GB + Blargg mem_timing / mem_timing-2; establish expanded baseline.
-  - Begin per-M-cycle bus ticking (read/write tick the subsystems mid-instruction) so
-    mem_timing/mem_timing-2 and Mooneye timing tests can pass. This is THE core frontier
-    (the "long timing tail" the owner called out). Spike-then-migrate; keep 13/13 green.
-  - Likely also: MBC2/3/5 + battery .sav (more ROMs runnable), then APU.
+PASSING TIMING TESTS: cpu_instrs 11/11, instr_timing, mem_timing 01/02/03, halt_bug(screen).
+KNOWN-FAIL/SKIP: interrupt_time (CGB-oriented). mem_timing-2 combined not fetched (mirror
+  truncates large file). Mooneye suite not yet integrated.
+
+NEXT ROUND SEED (round 4): integrate Mooneye-GB suite + deepen timing quirks.
+  - Add a Mooneye harness mode: detect test end (LD B,B = 0x40 software breakpoint) and
+    check the Fibonacci register signature (B=3 C=5 D=8 E=13 H=21 L=34 = pass).
+  - Fetch Mooneye ROMs (try c-sp/gameboy-test-roms release zip, or Gekkio mirror).
+    Establish a Mooneye baseline, then fix high-impact quirks: timer (div_write, tima
+    reload edge cases), interrupt dispatch cancel quirk, OAM DMA timing.
+  - Stretch: MBC3 + battery .sav (broaden game support); start APU (Blargg dmg_sound).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
