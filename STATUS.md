@@ -4,11 +4,11 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 13 (complete, committed) — OAM access blocking (intr_2_oam_ok)
+ROUND: 14 (complete, committed) — boot/power-on state (boot_hwio + boot_regs-dmg)
 SUBSTRATE: C11 + clang
-PASS COUNT: 113/113  (15 serial + acid2 + 9 framehash + 2 game + 86 Mooneye/WP)
-  Round 13: CPU OAM access blocked during PPU modes 2/3 (reads 0xFF, writes ignored),
-  using the reported mode (+8). +intr_2_oam_ok_timing. PPU cluster 6→7/12. No regression.
+PASS COUNT: 115/115  (15 serial + acid2 + 9 framehash + 2 game + 88 Mooneye/WP)
+  Round 14: post-boot HWIO fixes — JOYP io[0x00]=0x00 (reads 0xCF), APU ch_on[0]=true
+  (NR52 reads 0xF1). +boot_hwio-dmgABCmgb, +boot_regs-dmg (wilbertpol). No regression.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -82,10 +82,16 @@ PPU remaining (5/12 fail): hblank_ly_scx (mode-0 IRQ timing vs +8 field offset �
   write (first-frame mode-3 timing), intr_2_mode0_timing_sprites (sprite mode-3 penalty = FIFO
   fetcher sim; data in /tmp/ppu_src/intr_2_mode0_timing_sprites.s), vblank_stat_intr.
 
-NEXT ROUND SEED (round 14): consider DIVERSIFYING after several PPU rounds — (a) interactive
-  minifb/SDL frontend + keyboard + cpal audio (playability, new dimension); (b) MBC3+RTC +
-  battery .sav (save games — verify by write-RAM/save/reload/check); (c) APU dmg_sound wave
-  (09/10/12)/sweep; (d) VRAM mode-3 blocking + the sprite-penalty FIFO sim (hard, high-leverage).
+REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fetcher sim —
+  highest leverage, unlocks intr_2_mode0_sprites + many wilbertpol gpu), APU wave channel
+  (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
+  -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
+
+NEXT ROUND SEED (round 15): the easy/medium wins are largely exhausted — pick a hard frontier
+  and make real +1-2 progress (this IS "the long timing tail"). Highest-leverage: the
+  sprite-penalty FIFO fetcher-timing sim (compute mode-3 length from sprites; data in
+  /tmp/ppu_src/intr_2_mode0_timing_sprites.s). Or diversify: APU wave channel, or the
+  interactive frontend (note: not headlessly verifiable — better when owner can test it).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

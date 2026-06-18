@@ -140,6 +140,7 @@ void apu_init(GB *g) {
     a->reg[0x10] = 0xFF; a->reg[0x11] = 0x00; a->reg[0x13] = 0xBF;
     a->reg[0x14] = 0x77; a->reg[0x15] = 0xF3; a->reg[0x16] = 0xF1;
     a->ch_dac[0] = true;  /* NR12=0xF3 -> DAC on */
+    a->ch_on[0] = true;   /* channel 1 is active post-boot (NR52 reads 0xF1) */
 }
 
 u8 apu_read(GB *g, u16 addr) {

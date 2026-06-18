@@ -152,6 +152,20 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 14 — boot/power-on state (PASS 113->115)  [committed]
+
+### What was built
+- Post-boot HWIO fixes (found by rendering boot_hwio's "MISMATCH AT $FFxx EXPECTED/GOT" screen
+  and chasing the chain): JOYP io[0x00]=0x00 (reads 0xCF, was 0xFF); APU ch_on[0]=true so
+  channel 1 is active post-boot and NR52 reads 0xF1 (was 0xF0).
+- +boot_hwio-dmgABCmgb (Mooneye) and +boot_regs-dmg (Wilbert Pol — the only non-duplicate
+  passing WP test left to vendor).
+
+### Verified
+- No regression: full gate 113->115, libbet title+gameplay hashes unchanged (games write the
+  JOYP select bits before reading), dmg_sound 01/11 hashes unchanged (boot state vs power-cycle
+  state are independent). boot_div still fails (post-boot DIV-at-handoff timing — deferred).
+
 ## Round 13 — OAM access blocking (PASS 112->113)  [committed]
 
 ### What was built
