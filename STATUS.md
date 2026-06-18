@@ -4,11 +4,11 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 12 (complete, committed) — Wilbert Pol suite (0xED breakpoint) + 6 SCX tests
+ROUND: 13 (complete, committed) — OAM access blocking (intr_2_oam_ok)
 SUBSTRATE: C11 + clang
-PASS COUNT: 112/112  (15 serial + acid2 + 9 framehash + 2 game + 85 Mooneye/WP[79 mooneye + 6 wilbertpol])
-  Round 12: --mooneye now detects 0xED (Wilbert Pol's breakpoint) too. WP DMG = 54/102
-  overall; vendored 6 NEW intr_2_mode0_scx{1,2,3,5,6,7}_timing_nops (validate SCX penalty).
+PASS COUNT: 113/113  (15 serial + acid2 + 9 framehash + 2 game + 86 Mooneye/WP)
+  Round 13: CPU OAM access blocked during PPU modes 2/3 (reads 0xFF, writes ignored),
+  using the reported mode (+8). +intr_2_oam_ok_timing. PPU cluster 6→7/12. No regression.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -77,10 +77,15 @@ WILBERT POL mining: 54/102 DMG pass overall (ED breakpoint). The new value is ac
   (47 tests, 11 pass) — vendored the 6 SCX ones. The other ~36 gpu fail (sprite/OAM mode-3
   penalties, lcdon, window timing — same PPU frontier). ROMs in /tmp/gbtr_x/mooneye-test-suite-wilbertpol.
 
-NEXT ROUND SEED (round 13): options — (a) PPU sprite/OAM mode-3 penalty (unlocks many
-  wilbertpol gpu + mooneye intr_2_*_sprites/oam_ok) or lcdon_timing/lcdon_write; (b) interactive
-  frontend (minifb/SDL + keyboard + cpal); (c) APU dmg_sound wave/sweep or same-suite; (d)
-  MBC3+RTC + battery .sav.
+PPU remaining (5/12 fail): hblank_ly_scx (mode-0 IRQ timing vs +8 field offset — investigate
+  whether the mode-0 STAT IRQ needs the +8 delay while mode-2 IRQ stays real), lcdon_timing/
+  write (first-frame mode-3 timing), intr_2_mode0_timing_sprites (sprite mode-3 penalty = FIFO
+  fetcher sim; data in /tmp/ppu_src/intr_2_mode0_timing_sprites.s), vblank_stat_intr.
+
+NEXT ROUND SEED (round 14): consider DIVERSIFYING after several PPU rounds — (a) interactive
+  minifb/SDL frontend + keyboard + cpal audio (playability, new dimension); (b) MBC3+RTC +
+  battery .sav (save games — verify by write-RAM/save/reload/check); (c) APU dmg_sound wave
+  (09/10/12)/sweep; (d) VRAM mode-3 blocking + the sprite-penalty FIFO sim (hard, high-leverage).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

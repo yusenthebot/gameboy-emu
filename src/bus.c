@@ -68,7 +68,8 @@ u8 bus_read(GB *gb, u16 addr) {
     if (addr < 0xC000) return cart_read(gb, addr);
     if (addr < 0xE000) return gb->wram[addr - 0xC000];
     if (addr < 0xFE00) return gb->wram[addr - 0xE000];   /* echo RAM */
-    if (addr < 0xFEA0) return gb->dma_running ? 0xFF : gb->oam[addr - 0xFE00];
+    if (addr < 0xFEA0)
+        return (gb->dma_running || !ppu_oam_accessible(gb)) ? 0xFF : gb->oam[addr - 0xFE00];
     if (addr < 0xFF00) return 0xFF;                       /* unusable */
     if (addr < 0xFF80) {                                  /* I/O */
         if ((addr >= 0xFF10 && addr <= 0xFF26) || (addr >= 0xFF30 && addr <= 0xFF3F))
@@ -97,7 +98,10 @@ void bus_write(GB *gb, u16 addr, u8 val) {
     if (addr < 0xC000) { cart_write(gb, addr, val); return; }
     if (addr < 0xE000) { gb->wram[addr - 0xC000] = val; return; }
     if (addr < 0xFE00) { gb->wram[addr - 0xE000] = val; return; }  /* echo */
-    if (addr < 0xFEA0) { if (!gb->dma_running) gb->oam[addr - 0xFE00] = val; return; }
+    if (addr < 0xFEA0) {
+        if (!gb->dma_running && ppu_oam_accessible(gb)) gb->oam[addr - 0xFE00] = val;
+        return;
+    }
     if (addr < 0xFF00) { return; }                                 /* unusable */
     if (addr < 0xFF80) {                                           /* I/O */
         if ((addr >= 0xFF10 && addr <= 0xFF26) || (addr >= 0xFF30 && addr <= 0xFF3F)) {

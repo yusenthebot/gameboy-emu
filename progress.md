@@ -152,6 +152,23 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 13 — OAM access blocking (PASS 112->113)  [committed]
+
+### What was built
+- CPU access to OAM (0xFE00-0xFE9F) is now blocked during PPU modes 2/3: reads return 0xFF,
+  writes are ignored. Uses ppu_oam_accessible() = (reported mode <= 1), so the access window
+  matches the +8 STAT-field timing the intr_2 tests measure. The PPU's own OAM reads and OAM
+  DMA writes go direct (unaffected).
+- +intr_2_oam_ok_timing (it polls cleared OAM until readable = mode 0). PPU cluster 6->7/12.
+
+### Verified
+- No regression: acid2 0/23040, libbet frame-hash unchanged (games access OAM via DMA/vblank),
+  full gate 112->113. (Also flips wilbertpol gpu intr_2_oam_ok, a name-dup, not separately gated.)
+
+### Note: chose intr_2_oam_ok (contained) over the sprite mode-3 penalty (intr_2_mode0_timing_
+  sprites) — the latter is genuine FIFO-fetcher behavior (penalty depends on sprite count AND
+  X alignment non-linearly; exact data in the .s) and wants a fetcher-timing simulation.
+
 ## Round 12 — Wilbert Pol suite (0xED breakpoint) (PASS 106->112)  [committed]
 
 ### What was found / built

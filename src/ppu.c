@@ -161,6 +161,13 @@ static u8 stat_reported_mode(GB *g) {
     return 0;
 }
 
+/* OAM is accessible to the CPU only in HBlank/VBlank (reported mode 0/1), not
+ * during OAM-scan/drawing (modes 2/3). Uses the same reported mode as STAT so
+ * the access window matches the STAT timing the intr_2 tests measure. */
+bool ppu_oam_accessible(GB *g) {
+    return stat_reported_mode(g) <= 1;
+}
+
 static void stat_check(GB *g) {
     bool line = false;
     if ((g->stat & 0x08) && g->mode == 0) line = true;
