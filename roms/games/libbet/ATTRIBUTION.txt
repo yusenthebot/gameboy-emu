@@ -1,0 +1,4 @@
+"Libbet and the Magic Floor" by Damian Yerrick (PinoBatch), v0.08.
+Source: https://github.com/pinobatch/libbet  (zlib License; free homebrew).
+Vendored as a real-game demo: the emulator renders its playable title screen and,
+on a scripted Start press, enters and renders actual gameplay (frame-hash gated).

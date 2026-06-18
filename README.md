@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-100%2F100%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-102%2F102%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -28,9 +28,24 @@ sub-instruction timing tests.
 | **Mooneye-GB acceptance (DMG)** | **51 / 66** |
 | **Mooneye-GB MBC** (MBC1/2/5) | **27 / 28** |
 | **Blargg `dmg_sound`** (APU) | **5 / 12** subtests |
+| **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **100/100 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **102/102 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
+
+## It runs real games
+
+Beyond the test ROMs, the emulator runs real homebrew. Here is *Libbet and the Magic
+Floor* (a free zlib-licensed homebrew by PinoBatch) — its **playable title screen**, and
+**actual gameplay** after the harness scripts a `Start` press (`--keys "650:start,665:none"`):
+
+| Title screen | Gameplay (after Start) |
+|:---:|:---:|
+| ![libbet title](docs/screenshots/libbet-title.png) | ![libbet gameplay](docs/screenshots/libbet-gameplay.png) |
+
+Both frames are deterministic and frame-hash–gated in the regression suite, so "it runs
+real games" stays true automatically. (uCity, a CGB-only MBC5 game, also runs and correctly
+shows its "this game is only for GBC" DMG-detection screen.)
 
 ## Architecture
 
@@ -130,7 +145,7 @@ make                                  # builds ./gbemu
 ./gbemu roms/mooneye/acceptance/timer/tim00.gb --mooneye
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 100/100
+./tools/run_tests.sh                  # -> PASS: 102/102
 ```
 
 ## How tests are verified (no "looks right")
@@ -161,7 +176,7 @@ STATUS.md, progress.md   current state + full round-by-round build log
 
 **Done:** full SM83 core · per-M-cycle timing · scanline PPU (acid2-perfect) · MBC1/2/5 ·
 cycle-accurate OAM DMA · timer quirks · APU register/length/envelope/sweep core ·
-headless test harness.
+runs real homebrew games (input via `--keys`) · headless test harness.
 
 **Next (the remaining timing tail):**
 

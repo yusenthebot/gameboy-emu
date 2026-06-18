@@ -4,10 +4,11 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 9 (complete, committed) — APU (sound) core
+ROUND: 10 (complete, committed) — playability: real game runs (libbet)
 SUBSTRATE: C11 + clang
-PASS COUNT: 100/100  (15 serial + acid2 + 6 framehash[halt_bug + 5 dmg_sound] + 78 Mooneye)
-  Round 9: implemented the APU (src/apu.c) — passes 5 Blargg dmg_sound subtests.
+PASS COUNT: 102/102  (15 serial + acid2 + 6 framehash + 2 game[libbet title+gameplay] + 78 Mooneye)
+  Round 10: a real homebrew GAME (libbet) renders its playable title screen, takes input
+  (--keys), and renders actual gameplay. Fulfills the "playable title screen" goal.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -58,11 +59,18 @@ APU (src/apu.c, round 9): NRxx register file + masks, NR52 power (off clears reg
   FS-period sync), 08-len ctr during power (power/FS-DIV coupling precision), 09/10/12
   wave read/trigger/write-while-on (wave channel access quirks). No audio output yet (cpal).
 
-NEXT ROUND SEED (round 10): options — (a) more APU: wave channel access quirks (09/10/12),
-  sweep edge cases (04/05/07), power-FS coupling (08); (b) back to PPU: sprite/OAM mode-3
-  penalties, LCD-on quirk, or the FIFO per-dot rewrite; (c) escalate in kind to the
-  interactive frontend (SDL/minifb + input + cpal audio) + a homebrew game -> the
-  Tetris-title-screen / playability goal (needs a free homebrew ROM, network).
+PLAYABILITY (round 10): src/main.c --keys "frame:btn,..." scripted input (right/left/up/
+  down/a/b/select/start/none). libbet (PinoBatch, zlib) vendored under roms/games/. Title
+  screen @ frame 600 (static) + gameplay @ frame 900 after Start press, both frame-hashed.
+  Proven: real game runs, MBC handling, input works, gameplay renders. uCity (CGB-only,
+  MBC5 128KB) also runs and correctly shows its "GBC only" DMG-detection screen (not vendored).
+  NEXT for playability: interactive window (minifb/SDL + keyboard) + cpal audio = truly
+  playable by a human; more games (a real Tetris-like via free homebrew).
+
+NEXT ROUND SEED (round 11): options — (a) interactive frontend (minifb/SDL window + keyboard
+  + cpal audio) so a human can actually play; (b) more APU (dmg_sound wave quirks 09/10/12,
+  sweep 04/05/07) or same-suite APU (needs sample-accurate channels); (c) PPU (sprite/OAM
+  mode-3 penalties, LCD-on quirk, FIFO rewrite); (d) MBC3+RTC + battery .sav (save games).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

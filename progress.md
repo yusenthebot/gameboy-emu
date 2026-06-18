@@ -152,6 +152,30 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 10 — playability: a real game runs (PASS 100->102)  [committed]
+
+### What was built / proven
+- src/main.c: `--keys "frame:btn,..."` scripted joypad input (right/left/up/down/a/b/
+  select/start/none, held until the next event) for headless playability testing.
+- Vendored libbet ("Libbet and the Magic Floor", Damian Yerrick / PinoBatch, zlib) under
+  roms/games/libbet/. New "game" gate category (rom|frames|keys|sha256).
+- Proven on a REAL game: libbet renders its **playable title screen** ("Select: demo |
+  Start: play"), responds to a scripted Start press, and renders **actual gameplay** (game
+  board + HUD "0 Combo / 0% / 0/04"). Both frames are static/deterministic and frame-hashed.
+- Also ran uCity (AntonioND, MBC5, 128KB, CGB-only): correctly renders its "This game is
+  only for GBC!" DMG-detection screen — proves MBC5 + accurate DMG register behavior.
+
+### How the ROM was obtained (flaky network)
+- Tobu Tobu Girl / 2048-gb fetches returned HTML (bad paths); uCity is CGB-only. libbet has
+  a direct GitHub release asset (validated via the Nintendo-logo header check at 0x104).
+
+### Verified
+- No regression; gate 100 -> 102. Fulfills the user's "Tetris -> playable title screen" goal
+  with a free, legal homebrew game. Crossed from "passes tests" into "runs real software".
+
+### Note: same-suite (SameBoy's own suite, 78 ROMs) baselined at 2/78 — needs sample-accurate
+  APU channels (frequency timers, duty, wave/noise output); a multi-round APU deepening.
+
 ## Round 9 — APU (sound) core (PASS 95->100)  [committed]
 
 ### What was built

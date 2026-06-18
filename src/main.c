@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
     }
     const char *path = argv[1];
     int frames = 0, mooneye = 0;
-    const char *png_path = NULL, *raw_path = NULL;
+    const char *png_path = NULL, *raw_path = NULL, *keys = NULL;
     u64 max_cycles = 350000000ULL;
 
     for (int i = 2; i < argc; i++) {
@@ -33,8 +33,25 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--png") && i + 1 < argc) png_path = argv[++i];
         else if (!strcmp(argv[i], "--raw") && i + 1 < argc) raw_path = argv[++i];
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
+        else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--cycles") && i + 1 < argc) max_cycles = strtoull(argv[++i], NULL, 0);
         else if (argv[i][0] != '-') max_cycles = strtoull(argv[i], NULL, 0);
+    }
+
+    /* --keys "frame:btn,frame:btn,..." : set the joypad at given frames.
+     * btn = one of right,left,up,down,a,b,select,start,none. Held until next. */
+    struct { u32 frame; u8 mask; } kev[32]; int nkev = 0;
+    if (keys) {
+        char buf[256]; strncpy(buf, keys, sizeof(buf) - 1); buf[sizeof(buf) - 1] = 0;
+        for (char *tok = strtok(buf, ","); tok && nkev < 32; tok = strtok(NULL, ",")) {
+            char *colon = strchr(tok, ':'); if (!colon) continue;
+            *colon = 0; u32 fr = (u32)atoi(tok); const char *b = colon + 1; u8 m = 0;
+            if (!strcmp(b, "right")) m = 0x01; else if (!strcmp(b, "left")) m = 0x02;
+            else if (!strcmp(b, "up")) m = 0x04; else if (!strcmp(b, "down")) m = 0x08;
+            else if (!strcmp(b, "a")) m = 0x10; else if (!strcmp(b, "b")) m = 0x20;
+            else if (!strcmp(b, "select")) m = 0x40; else if (!strcmp(b, "start")) m = 0x80;
+            kev[nkev].frame = fr; kev[nkev].mask = m; nkev++;
+        }
     }
 
     memset(&gb, 0, sizeof(gb));
@@ -61,9 +78,12 @@ int main(int argc, char **argv) {
     }
 
     if (frames > 0) {
-        /* Frame-dump mode. */
-        while (gb.cycles < max_cycles && gb.frame_count < (u64)frames)
+        /* Frame-dump mode (with optional scripted input). */
+        int ke = 0;
+        while (gb.cycles < max_cycles && gb.frame_count < (u64)frames) {
+            while (ke < nkev && gb.frame_count >= kev[ke].frame) gb.buttons = kev[ke++].mask;
             cpu_step(&gb);
+        }
         fprintf(stderr, "frames=%llu cycles=%llu\n",
                 (unsigned long long)gb.frame_count, (unsigned long long)gb.cycles);
         if (png_path) {

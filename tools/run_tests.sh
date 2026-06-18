@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -58,6 +58,24 @@ for spec in "${FRAMEHASH[@]}"; do
     if [ ! -f "$rom" ]; then fail=$((fail+1)); row "$name" "MISSING"; continue; fi
     tmp="/tmp/gbemu_$(basename "$rom").hraw"
     "$BIN" "$rom" --frames "$frames" --raw "$tmp" --cycles 250000000 >/dev/null 2>&1
+    got=$(shasum -a 256 "$tmp" | cut -d' ' -f1)
+    if [ "$got" = "$want" ]; then pass=$((pass+1)); row "$name" "PASS"
+    else fail=$((fail+1)); row "$name" "FAIL ($got)"; fi
+done
+
+# --- game demos: real homebrew renders correctly (frame-hash, optional input) ---
+# format: rom|frames|keys|sha256  (keys "" = none; "f:btn,..." = scripted input)
+GAMES=(
+  "roms/games/libbet/libbet.gb|600||35b72daceddf64b6105cdc35991008844919f72e9bfcdcea4ffb0950f984d3b1"
+  "roms/games/libbet/libbet.gb|900|650:start,665:none|4db317ab88bc6d4c75668d7e39fda77277c5385093c867616a206b39a40e059b"
+)
+for spec in "${GAMES[@]}"; do
+    IFS='|' read -r rom fr gkeys want <<< "$spec"
+    total=$((total+1)); name="${rom#roms/games/}${gkeys:+ +input} (game)"
+    if [ ! -f "$rom" ]; then fail=$((fail+1)); row "$name" "MISSING"; continue; fi
+    tmp="/tmp/gbemu_game_$(basename "$rom")_$fr.raw"
+    if [ -n "$gkeys" ]; then "$BIN" "$rom" --frames "$fr" --keys "$gkeys" --raw "$tmp" --cycles 120000000 >/dev/null 2>&1
+    else "$BIN" "$rom" --frames "$fr" --raw "$tmp" --cycles 120000000 >/dev/null 2>&1; fi
     got=$(shasum -a 256 "$tmp" | cut -d' ' -f1)
     if [ "$got" = "$want" ]; then pass=$((pass+1)); row "$name" "PASS"
     else fail=$((fail+1)); row "$name" "FAIL ($got)"; fi
