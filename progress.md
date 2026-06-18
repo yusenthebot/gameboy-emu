@@ -152,6 +152,29 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 11 — mem_timing-2 + PPU LCD/STAT quirks (PASS 102->106)  [committed]
+
+### What was built
+- mem_timing-2 (Blargg, screen-output; I already pass mem_timing): verified "Passed"
+  visually, frame-hashed the 3 individuals (01-read/02-write/03-modify). +3.
+- PPU LCD/STAT quirks (src/ppu.c) -> Mooneye stat_lyc_onoff (+1):
+  - LCD off: the LY=LYC coincidence flag FREEZES at its turn-off value (g->ly_coin), and
+    the STAT mode field reads 0.
+  - First frame after LCD-on: LY=0's OAM-scan period reports mode 0 (g->lcd_on_frame).
+  - The STAT interrupt line is now GB state (g->stat_line), set at LCD-off to the FROZEN
+    coincidence value so a later LCD-on only re-fires the LYC IRQ on a genuine rising edge
+    (round 2 frozen-1 = no edge; round 4 frozen-0 = edge). LCD-on evaluates it immediately
+    so the IRQ lands within the LCDC-write instruction.
+
+### How the round-4 bug was found (systematic)
+- Traced STAT reads (rounds 1-3 fixed by the freeze + first-frame mode-0), then traced the
+  interrupt service: the IRQ *was* requested but round 2 also fired it (wrong). Root cause:
+  resetting stat_line to false on LCD-off lost the frozen-edge state. Setting it to the
+  frozen coincidence fixed both.
+
+### Verified
+- No regression (acid2 0/23040, all prior STAT tests still pass). Gate 102 -> 106.
+
 ## Round 10 — playability: a real game runs (PASS 100->102)  [committed]
 
 ### What was built / proven

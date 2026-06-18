@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -46,6 +46,9 @@ done
 # Blargg dmg_sound subtests print "Passed" on screen (no serial); gated by frame hash.
 FRAMEHASH=(
   "roms/halt_bug.gb:200:af839267dfcc94c90f576235f84ad5a49ca01bfe98ea983e5e1446a586590c52"
+  "roms/mem_timing-2/01-read_timing.gb:300:3760ee8b57c6c2ab056d4b7d031f2faff9776798952ec86792d42612709d5182"
+  "roms/mem_timing-2/02-write_timing.gb:300:9188cba9c59c99056ae1d3c826647f0cd20fc06e42d419d2b7e58813c2ce787d"
+  "roms/mem_timing-2/03-modify_timing.gb:300:55c3c37f0cb5f9c806294aef2d8ca6c884c9067f61c1213df4bfcad8c22ac157"
   "roms/dmg_sound/01-registers.gb:1300:889a65d03aafcb1eaf083cc5c427d52131df4ea5f94b18696e4e0ba22c761980"
   "roms/dmg_sound/02-len ctr.gb:1300:fe526b2e378dba4ce9b8b840badcc38cc97dc624400ab78274d51e25754e1b03"
   "roms/dmg_sound/03-trigger.gb:1300:d91b281e25a0dbfd4e99d65a3f85a02af6890f895a524fe8fa3ee1082a6fcac9"

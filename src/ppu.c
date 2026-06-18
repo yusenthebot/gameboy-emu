@@ -148,9 +148,15 @@ static void set_mode(GB *g, u8 mode) { g->mode = mode; }
 static inline int mode3_end(GB *g) { return MODE3_END + (g->scx & 7); }
 
 static u8 stat_reported_mode(GB *g) {
+    if (!(g->lcdc & LCDC_LCD_EN)) return 0;   /* LCD off -> STAT mode reads 0 */
     if (g->ly >= VBLANK_LINE) return 1;
     u32 dot = g->ppu_dot % LINE_DOTS;
-    if (dot < MODE2_END + STAT_MODE_DELAY) return 2;
+    /* The +8-dot delay applies to the 0->2 (line-start) boundary too, so the
+     * mode field reads 0 (HBlank tail) for the first 8 dots of each line and
+     * right after the LCD is enabled. */
+    if (dot < STAT_MODE_DELAY) return 0;
+    if (dot < MODE2_END + STAT_MODE_DELAY)
+        return (g->lcd_on_frame && g->ly == 0) ? 0 : 2;  /* first OAM scan reads 0 */
     if (dot < (u32)mode3_end(g) + STAT_MODE_DELAY) return 3;
     return 0;
 }
@@ -161,9 +167,8 @@ static void stat_check(GB *g) {
     if ((g->stat & 0x10) && g->mode == 1) line = true;
     if ((g->stat & 0x20) && g->mode == 2) line = true;
     if ((g->stat & 0x40) && g->ly == g->lyc) line = true;
-    static bool prev;
-    if (line && !prev) cpu_request_interrupt(g, INT_STAT);
-    prev = line;
+    if (line && !g->stat_line) cpu_request_interrupt(g, INT_STAT);
+    g->stat_line = line;
 }
 
 void ppu_tick(GB *g, int tcycles) {
@@ -175,6 +180,7 @@ void ppu_tick(GB *g, int tcycles) {
         u32 line_dot = g->ppu_dot % LINE_DOTS;
         u8 ly = (u8)(g->ppu_dot / LINE_DOTS);
         g->ly = ly;
+        if (ly != 0) g->lcd_on_frame = false;   /* first-frame quirk ends after LY=0 */
 
         u8 mode;
         if (ly >= VBLANK_LINE) mode = 1;
@@ -204,9 +210,12 @@ void ppu_tick(GB *g, int tcycles) {
 u8 ppu_read(GB *g, u16 addr) {
     switch (addr) {
         case 0xFF40: return g->lcdc;
-        case 0xFF41:
-            return (g->stat & 0x78) | (g->ly == g->lyc ? 0x04 : 0) |
-                   stat_reported_mode(g) | 0x80;
+        case 0xFF41: {
+            /* Coincidence is live while the LCD is on, frozen at its turn-off
+             * value while the LCD is off. */
+            bool coin = (g->lcdc & LCDC_LCD_EN) ? (g->ly == g->lyc) : g->ly_coin;
+            return (g->stat & 0x78) | (coin ? 0x04 : 0) | stat_reported_mode(g) | 0x80;
+        }
         case 0xFF42: return g->scy;
         case 0xFF43: return g->scx;
         case 0xFF44: return g->ly;
@@ -224,10 +233,18 @@ void ppu_write(GB *g, u16 addr, u8 val) {
     switch (addr) {
         case 0xFF40: {
             bool was_on = (g->lcdc & LCDC_LCD_EN) != 0;
-            g->lcdc = val;
-            if (was_on && !(val & LCDC_LCD_EN)) {
+            bool now_on = (val & LCDC_LCD_EN) != 0;
+            if (was_on && !now_on) {
+                g->ly_coin = (g->ly == g->lyc);   /* freeze coincidence at turn-off */
+                /* The STAT line holds its frozen value while off (only the LYC
+                 * source can be active, since the mode reads 0), so a later
+                 * LCD-on only re-triggers if it's a genuine rising edge. */
+                g->stat_line = (g->stat & 0x40) && g->ly_coin;
                 g->ly = 0; g->ppu_dot = 0; g->mode = 0; g->win_line = 0;
             }
+            if (!was_on && now_on) g->lcd_on_frame = true; /* first-frame quirk */
+            g->lcdc = val;
+            if (!was_on && now_on) stat_check(g); /* LCD-on coincidence fires now */
             break;
         }
         case 0xFF41: g->stat = val & 0x78; break;

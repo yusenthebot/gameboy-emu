@@ -1,0 +1,3 @@
+Blargg's mem_timing-2 test ROMs (gb-test-roms), by Shay Green. Freely redistributable.
+Screen-output (no serial) -> gated by frame hash. The emulator passes all 3 (01-read,
+02-write, 03-modify) -> "Passed".

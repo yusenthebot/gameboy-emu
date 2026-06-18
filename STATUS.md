@@ -4,11 +4,10 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 10 (complete, committed) — playability: real game runs (libbet)
+ROUND: 11 (complete, committed) — mem_timing-2 + PPU LCD/STAT quirks
 SUBSTRATE: C11 + clang
-PASS COUNT: 102/102  (15 serial + acid2 + 6 framehash + 2 game[libbet title+gameplay] + 78 Mooneye)
-  Round 10: a real homebrew GAME (libbet) renders its playable title screen, takes input
-  (--keys), and renders actual gameplay. Fulfills the "playable title screen" goal.
+PASS COUNT: 106/106  (15 serial + acid2 + 9 framehash[+3 mem_timing-2] + 2 game + 79 Mooneye[+stat_lyc_onoff])
+  Round 11: +mem_timing-2 (3, frame-hash) + Mooneye stat_lyc_onoff (LCD-off/on STAT quirks).
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -36,7 +35,13 @@ STILL FAILING (frontier, 17; ROMs in /tmp/gbtr_x/mooneye-test-suite, not vendore
   - interrupts/ie_push (IE-overwrite cancel quirk: intricate; vector sampled mid-dispatch),
     rapid_di_ei, boot_div, boot_hwio, serial/boot_sclk_align.
 
-PPU cluster: 5/12 pass now (+intr_2_mode0_timing, intr_2_mode3_timing this round).
+PPU cluster: 6/12 (+stat_lyc_onoff round 11). Round-11 PPU quirks added (ppu.c): LCD-off
+  freezes the LY=LYC coincidence flag (g->ly_coin) + STAT mode reads 0; first frame after
+  LCD-on reads mode 0 during LY=0's OAM scan (g->lcd_on_frame); the STAT interrupt line is
+  now GB state (g->stat_line) holding its frozen value across LCD off/on so an LCD-on
+  coincidence only re-fires on a genuine rising edge; LCD-on evaluates the coincidence IRQ
+  immediately. These set up lcdon_timing/lcdon_write (still failing — need full first-frame
+  mode-3 timing) for a future round.
   KEY FINDING (ppu.c): the STAT mode FIELD read via FF41 lags the internal mode by 8 dots
   at the 2->3 and 3->0 boundaries (stat_reported_mode, STAT_MODE_DELAY=8); the STAT IRQ
   and rendering keep the REAL transitions (delaying the IRQ broke intr_2_0_timing). Also
@@ -67,10 +72,10 @@ PLAYABILITY (round 10): src/main.c --keys "frame:btn,..." scripted input (right/
   NEXT for playability: interactive window (minifb/SDL + keyboard) + cpal audio = truly
   playable by a human; more games (a real Tetris-like via free homebrew).
 
-NEXT ROUND SEED (round 11): options — (a) interactive frontend (minifb/SDL window + keyboard
-  + cpal audio) so a human can actually play; (b) more APU (dmg_sound wave quirks 09/10/12,
-  sweep 04/05/07) or same-suite APU (needs sample-accurate channels); (c) PPU (sprite/OAM
-  mode-3 penalties, LCD-on quirk, FIFO rewrite); (d) MBC3+RTC + battery .sav (save games).
+NEXT ROUND SEED (round 12): options — (a) PPU: lcdon_timing/lcdon_write (first-frame mode-3
+  timing, builds on round-11 lcd_on_frame), or sprite/OAM mode-3 penalties, or vblank_stat_intr;
+  (b) interactive frontend (minifb/SDL + keyboard + cpal audio); (c) more APU (dmg_sound
+  wave 09/10/12, sweep) or sample-accurate same-suite channels; (d) MBC3+RTC + battery .sav.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
