@@ -64,7 +64,7 @@ static void dma_write(GB *gb, u8 val) {
 
 u8 bus_read(GB *gb, u16 addr) {
     if (addr < 0x8000) return cart_read(gb, addr);
-    if (addr < 0xA000) return gb->vram[addr - 0x8000];
+    if (addr < 0xA000) return ppu_vram_accessible(gb) ? gb->vram[addr - 0x8000] : 0xFF;
     if (addr < 0xC000) return cart_read(gb, addr);
     if (addr < 0xE000) return gb->wram[addr - 0xC000];
     if (addr < 0xFE00) return gb->wram[addr - 0xE000];   /* echo RAM */
@@ -94,7 +94,7 @@ u8 bus_read(GB *gb, u16 addr) {
 
 void bus_write(GB *gb, u16 addr, u8 val) {
     if (addr < 0x8000) { cart_write(gb, addr, val); return; }
-    if (addr < 0xA000) { gb->vram[addr - 0x8000] = val; return; }
+    if (addr < 0xA000) { if (ppu_vram_accessible(gb)) gb->vram[addr - 0x8000] = val; return; }
     if (addr < 0xC000) { cart_write(gb, addr, val); return; }
     if (addr < 0xE000) { gb->wram[addr - 0xC000] = val; return; }
     if (addr < 0xFE00) { gb->wram[addr - 0xE000] = val; return; }  /* echo */

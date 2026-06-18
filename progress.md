@@ -1,5 +1,29 @@
 # Progress Log
 
+## Round 16 — VRAM blocking + sprite-FIFO groundwork (PASS 118->118, FLAT)  [committed local]
+
+### What was attempted (the named frontier: FIFO sprite penalty)
+- Target: Mooneye intr_2_mode0_timing_sprites (highest-leverage PPU test). Extracted the full
+  105-case oracle. Derived the single-column table: extra(n,c)=floor(3n/2)+bonus, bonus=1 iff
+  c<T(n) with T N-DEPENDENT (T(1)=4, T(10)=2), plus a cross-group cost. A closed form fits the
+  first cases but not all -> genuine pixel-FIFO behaviour needing a dot-stepped fetcher sim.
+- Insight: the test's "extra" is in M-cycles (~60 dots/10 objs ~= 16), so the sim must compute
+  mode-3 in DOTS and let the existing calibrated mode-0 poll convert. Saved everything to
+  docs/ppu-mode3-sprite-penalty.md.
+- WHAT DID NOT WORK: the floor(3n/2)+c closed form (reverted, won't ship wrong timing).
+  WebFetch of Pan Docs / GBEDG OBJ-penalty algorithm 403/404 (travel network).
+
+### What shipped (verified)
+- VRAM access blocking: CPU reads of 0x8000-0x9FFF return 0xFF and writes are ignored during
+  mode 3 (ppu_vram_accessible = reported mode != 3). Sibling of round-13 OAM blocking. Verified
+  no regression (acid2 0/23040, libbet unchanged, gate 118). Unlocks 0 currently-gated tests
+  (correctness only) -> the gate stayed FLAT this round.
+
+### Honest note
+- First flat-gate round. Free/medium wins exhausted; remaining tail is all multi-round. Surfaced
+  a decision point to the owner (STATUS round-17 seed): build the pixel-FIFO sim (A), APU wave
+  channel (B), or pivot to the interactive playable frontend (C). Not pushed (flat round).
+
 ## Round 1 — SM83 CPU core (FLOOR met + exceeded)  [committed]
 
 ### What was built

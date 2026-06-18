@@ -4,13 +4,16 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 15 (complete, committed) — completeness sweep (+3 ungated passers)
+ROUND: 16 (complete, committed local) — VRAM access blocking + sprite-FIFO groundwork
 SUBSTRATE: C11 + clang
-PASS COUNT: 118/118  (15 serial + acid2 + 9 framehash + 2 game + 91 Mooneye/WP/SameSuite)
-  Round 15: completeness critic — swept ALL suites for DMG passers not yet gated. Found +3:
-  same-suite/apu/channel_3_wave_ram_dac_on_rw, same-suite/apu/div_write_trigger_10 (first
-  SameBoy-suite tests gated!), wilbertpol/emulator-only/mbc1_rom_4banks. boot_div tuning
-  failed (needs boot-handoff timing, not just DIV value). No new emulator code; no regression.
+PASS COUNT: 118/118  (gate FLAT this round — honest: no clean +1 was available)
+  Round 16: attacked the sprite mode-3 penalty (highest-leverage). Derived the 105-case
+  oracle; a closed form (floor(3n/2)+c) fits early cases but NOT the N-dependent bonus
+  threshold or cross-group cost -> it needs a faithful dot-stepped pixel-FIFO sim (multi-
+  round). Reverted the heuristic (won't ship wrong timing). Shipped instead: VRAM access
+  blocking (CPU VRAM reads 0xFF / writes ignored during mode 3; verified no regression,
+  0 new gated tests) + docs/ppu-mode3-sprite-penalty.md (oracle + analysis for next round).
+  NOT pushed (flat round; bundle the push with the next real +N).
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -89,14 +92,18 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 16): the free passers are now ALL gated (completeness sweep done).
-  Remaining = the hard tail, each a real multi-step feature: (1) sprite mode-3 penalty / FIFO
-  fetcher-timing sim (highest leverage — unlocks intr_2_mode0_sprites + many wilbertpol gpu;
-  data in /tmp/ppu_src/intr_2_mode0_timing_sprites.s); (2) APU wave channel freq-timer + DMG
-  wave-RAM access window (dmg_sound 09/10/12 + more same-suite ch3); (3) lcdon_timing (LY+STAT
-  +OAM+VRAM first-frame; needs VRAM blocking too); (4) sample-accurate APU channels (same-suite
-  ~74 remaining). Pick one and push it as a genuine multi-step effort. Consider surfacing to
-  the owner that the test tail is now hard + offering the interactive frontend (needs them present).
+NEXT ROUND SEED (round 17): DECISION POINT surfaced to owner — the test tail is now all
+  multi-round (no clean +1 left). Best options:
+  (A) Build the dot-stepped pixel-FIFO mode-3 sim (passes intr_2_mode0_timing_sprites +
+      much of wilbertpol gpu). Groundwork ready: docs/ppu-mode3-sprite-penalty.md + the
+      105-row oracle (re-extract from /tmp/ppu_src/intr_2_mode0_timing_sprites.s). Build the
+      sim in Python first, verify against ALL 105 rows, THEN port to C. Highest leverage.
+  (B) APU wave channel (freq timer + DMG wave-RAM access window) for dmg_sound 09/10/12.
+  (C) Interactive minifb/SDL + keyboard + cpal frontend — the big diversification & a stated
+      goal, but NOT headlessly verifiable: best done when the owner can watch it run.
+  (D) sample-accurate same-suite APU (~74 left) — very hard, multi-round.
+  Recommendation: (A) as a dedicated multi-round build, OR (C) if the owner wants to steer
+  toward something they can play. VRAM blocking already landed this round.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

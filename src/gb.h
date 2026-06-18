@@ -171,6 +171,7 @@ void ppu_tick(GB *gb, int tcycles);
 u8   ppu_read(GB *gb, u16 addr);
 void ppu_write(GB *gb, u16 addr, u8 val);
 bool ppu_oam_accessible(GB *gb);   /* false during PPU modes 2/3 (CPU sees 0xFF) */
+bool ppu_vram_accessible(GB *gb);  /* false during PPU mode 3 (CPU sees 0xFF) */
 
 /* png.c */
 int png_write_gray(const char *path, int w, int h, const u8 *indices);

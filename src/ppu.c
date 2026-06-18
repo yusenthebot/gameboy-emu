@@ -5,8 +5,10 @@
  * 3=darkest). Mode 2 = 80 dots, mode 3 = 172 + (SCX & 7) dots, mode 0 fills
  * the rest. The STAT *mode field* read via FF41 lags the internal mode by 8
  * dots at the 2->3 and 3->0 boundaries (a DMG quirk Mooneye intr_2 tests pin);
- * the STAT IRQ and rendering use the real transitions. Sprite/window mode-3
- * penalties and VRAM/OAM access blocking are a later frontier.
+ * the STAT IRQ and rendering use the real transitions. OAM is blocked to the CPU
+ * in modes 2/3 and VRAM in mode 3 (ppu_oam/vram_accessible). The sprite/window
+ * mode-3 length penalty (pixel-FIFO) is the remaining frontier — see
+ * docs/ppu-mode3-sprite-penalty.md for the oracle and analysis.
  */
 #include "gb.h"
 #include <string.h>
@@ -166,6 +168,11 @@ static u8 stat_reported_mode(GB *g) {
  * the access window matches the STAT timing the intr_2 tests measure. */
 bool ppu_oam_accessible(GB *g) {
     return stat_reported_mode(g) <= 1;
+}
+
+/* VRAM is inaccessible to the CPU only during drawing (mode 3). */
+bool ppu_vram_accessible(GB *g) {
+    return stat_reported_mode(g) != 3;
 }
 
 static void stat_check(GB *g) {
