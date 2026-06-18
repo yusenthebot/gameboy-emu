@@ -1,0 +1,5 @@
+Wilbert Pol's extended Mooneye test suite (mooneye-test-suite-wilbertpol).
+Based on Mooneye GB by Joonas Javanainen; MIT. Uses the illegal opcode 0xED
+as its completion breakpoint (vs Mooneye's LD B,B). Only DMG tests that add
+NEW coverage over the standard Mooneye suite are vendored here (the SCX
+mode-0-timing variants, which exercise the mode-3 SCX fine-scroll penalty).

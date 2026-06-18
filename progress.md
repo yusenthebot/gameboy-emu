@@ -152,6 +152,24 @@
   from OAM as DMA overwrites it) + CPU-read-returns-DMA-byte bus conflict. Needs a fuller
   DMA-conflict model. Deferred.
 
+## Round 12 — Wilbert Pol suite (0xED breakpoint) (PASS 106->112)  [committed]
+
+### What was found / built
+- The user-named "Wilbert Pol" suite (mooneye-test-suite-wilbertpol, 121 ROMs) baselined at
+  0/102 — but the reg dumps showed the Fibonacci PASS signature. Root cause: wilbertpol uses
+  the illegal opcode 0xED as its completion breakpoint, not Mooneye's LD B,B (0x40). Traced
+  the loop bytes (set fib regs, `ED`, `jr -3`) to confirm.
+- main.c --mooneye now accepts 0x40 OR 0xED as the breakpoint. Safe: real code never executes
+  illegal opcodes, and it only applies in --mooneye mode. No regression (standard mooneye
+  still 106; LD B,B still detected).
+- Result: wilbertpol DMG 0/102 -> 54/102. Vendored the 6 genuinely-NEW
+  intr_2_mode0_scx{1,2,3,5,6,7}_timing_nops (validate the round-8 SCX mode-3 penalty across
+  scx=1..7) under roms/wilbertpol/. Gate 106 -> 112.
+
+### Frontier note
+- wilbertpol acceptance/gpu/ = 11/47; the ~36 fails are the same PPU frontier (sprite/OAM
+  mode-3 penalties, lcdon, window timing). A sprite/OAM mode-3 penalty would unlock many at once.
+
 ## Round 11 — mem_timing-2 + PPU LCD/STAT quirks (PASS 102->106)  [committed]
 
 ### What was built

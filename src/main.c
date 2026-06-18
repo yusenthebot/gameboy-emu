@@ -63,7 +63,11 @@ int main(int argc, char **argv) {
          * Fibonacci sequence on success. */
         int result = 1;
         while (gb.cycles < max_cycles) {
-            if (!gb.halted && bus_read(&gb, gb.pc) == 0x40) {
+            /* Completion breakpoint: LD B,B (0x40, Mooneye) or the illegal
+             * opcode 0xED (Wilbert Pol's fork). Registers hold the Fibonacci
+             * sequence on success. */
+            u8 op = bus_read(&gb, gb.pc);
+            if (!gb.halted && (op == 0x40 || op == 0xED)) {
                 result = (gb.b == 3 && gb.c == 5 && gb.d == 8 &&
                           gb.e == 13 && gb.h == 21 && gb.l == 34) ? 0 : 1;
                 break;
