@@ -1,5 +1,42 @@
 # Progress Log
 
+## Round 43 — FIFO integration analysis (no-op finding) + expand (PASS 1752->1842)  [committed + pushed]
+
+### What I measured (de-risking the integration before touching the gate)
+- FIFO mode-3 length vs the scanline's mode3_end (= 172 + scx&7 + obj_mode3_penalty), 8 configs:
+  offset = -1 with no objects (FIFO base 171 vs the scanline's 172), +2 with objects (the -1 base plus
+  the +3 from the FIFO using the raw penalty where the scanline subtracts its 3-dot line fudge).
+
+### The honest finding (this changed the migration plan)
+- Integrating the FIFO's mode-3 LENGTH is a NO-OP. The scanline's mode3_end is oracle-validated (passes
+  intr_2_mode0_timing_sprites, 105 cases). To be correct the FIFO must reproduce that exact value
+  (base 172 + the -3 line fudge). So a matched integration changes nothing; an unmatched one (the FIFO's
+  raw timing) is simply wrong by the offset and would regress the calibrated tests.
+- The deep sub-cycle tail (lcdon's 2T quirk, m2int STAT precedence, _ds_ audio) is NOT a PPU-only
+  problem: it needs the CPU to observe the PPU at sub-M-cycle T-cycles. My CPU is M-cycle-granular
+  (round 38's ceiling). So the real unlock is a per-T-cycle CPU+PPU co-simulation — a major rewrite of
+  a 1842-test, game-playing emulator. High regression risk, no oversight in the loop -> weigh, don't rush.
+- ONE genuine FIFO upside surfaced: the scanline's mode3_end ignores the WINDOW fetcher-restart cost,
+  which the FIFO models. Adding just a window mode-3 penalty (keeping sprite/base calibration) is a
+  bounded, reversible shot at new window-timing tests — that's the round-44 seed.
+
+### What did NOT work / was rejected
+- Naive "integrate the FIFO as the mode-3 driver" (the prior seed): rejected as a no-op (above).
+- Replacing render_scanline's pixels with the FIFO: pure refactor, no new tests, real regression risk
+  (untested edge cases: BG/window/sprite enable bits) -> not worth it.
+
+### What landed
+- Housekeeping: removed orphan ppu_lite.o (stale .o with no .c, was breaking standalone test links).
+- CGB expansion 931->1021. Gate 1752 -> 1842.
+
+### Frontier ladder (## Frontier)
+- The FIFO is a COMPLETE, validated pixel pipeline (BG+window+sprites, pixels+emergent timing) — a real
+  demonstrated artifact, but its integration unlocks ~nothing on its own (no-op timing).
+- NEXT (bounded): the WINDOW mode-3 penalty (a real scanline gap the FIFO fills) — round 44.
+- ULTIMATE (large, deferred): per-T-cycle CPU+PPU co-sim — the only path to the deepest tail. Weigh
+  carefully; spike-then-migrate; never break the 1842 gate at a boundary.
+- Meanwhile: keep the strict-increase via expansion; SPLIT the gate fast/slow soon (runtime ~70s).
+
 ## Round 42 — FIFO step 2c: sprite TIMING (penalty emerges) + expand (PASS 1672->1752)  [committed + pushed]
 
 ### Frontier milestone (T-cycle PPU migration, step 2c)

@@ -4,17 +4,22 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 42 (complete, committed + pushed) — FIFO step 2c: SPRITE TIMING (penalty EMERGES) + expand (+80)
+ROUND: 43 (complete, committed + pushed) — FIFO integration ANALYSIS (no-op finding) + expand (+90)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1752/1752  (688 gambatte-DMG + 931 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 42: FIFO step 2c = SPRITE TIMING. In ppu_fifo.c, reaching an object now STALLS the mixer (BG
-  fetcher pauses): a flat 6 dots + a once-per-BG-tile alignment cost (max(0,(7-off)-2)). The mode-3
-  object penalty now EMERGES from the pipeline. VALIDATED (--fifo-selftest): FIFO penalty (objects-on
-  minus objects-off mode-3 length) == obj_mode3_penalty + 3 across 40 OAM configs (the +3 = the
-  scanline penalty's -3 line fudge a true pipeline lacks), AND pixels still identical (120 lines).
-  => The FIFO is now a COMPLETE T-cycle pixel pipeline (BG+window+sprites, pixels + timing), standalone.
-  +CGB expansion 851->931. Gate 1672 -> 1752.
-  NEXT = step 3: INTEGRATE the FIFO as the real PPU's mode-3 driver (drop -3/+8), re-pass acid2/intr_2/gambatte.
+PASS COUNT: 1842/1842  (688 gambatte-DMG + 1021 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 43: measured FIFO mode-3 length vs the scanline's mode3_end (=172+scx&7+obj_mode3_penalty).
+  Offset: -1 (no objects, FIFO base 171 vs 172) / +2 (objects: -1 base + the +3 no-fudge penalty).
+  KEY FINDING: integrating the FIFO's mode-3 LENGTH is a NO-OP — after matching the oracle-validated
+  scanline calibration (base 172, the -3 line fudge) it just reproduces the scanline (which already
+  passes intr_2). The FIFO alone unlocks no new tests. The genuine sub-cycle tail (lcdon 2T, m2int)
+  is blocked by the M-cycle CPU (round 38): it needs a per-T-cycle CPU+PPU CO-simulation, a major
+  rewrite of a 1842-test game-playing emulator (high regression risk) — to weigh, not rush.
+  ONE real FIFO upside: it models the WINDOW mode-3 penalty the scanline lacks (a possible small unlock).
+  Housekeeping: removed orphan ppu_lite.o (was breaking standalone links). +CGB 931->1021. Gate 1752->1842.
+
+ROUND: 42 (complete, committed + pushed) — FIFO step 2c: SPRITE TIMING (penalty EMERGES) + expand (+80)
+  Round 42: object hit STALLS the mixer (6 + once-per-tile align); penalty EMERGES == obj_mode3_penalty+3.
+  FIFO is a complete T-cycle pixel pipeline (BG+window+sprites, px+timing). +CGB 851->931. Gate 1672->1752.
 
 ROUND: 41 (complete, committed + pushed) — FIFO migration step 2b: SPRITE fetch (pixels) + expand (+80)
   Round 41: FIFO sprite pixels (OBJ FIFO+priority) validated vs render_scanline 120 combos.
@@ -314,17 +319,17 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 43): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) FIFO step 3 (the BIG integrate, CAREFUL): drive the real PPU's mode-3 length from the FIFO's
-      emergent timing (fifo_bg_line returns mode-3 dots; the FIFO penalty = obj_mode3_penalty+3, i.e. the
-      scanline's -3 fudge disappears). Spike: first replace ONLY the mode-3-length source (keep the
-      scanline pixel render), re-run the FULL gate; acid2 + intr_2 + 1500+ gambatte PPU MUST stay green.
-      If anything regresses, the FIFO base/window/sprite dot constants need tuning vs the real PPU's
-      mode3_end (currently 80+172+scx&7+obj_penalty). Do it reversibly; never break the gate at a boundary.
-  (2) If step 3 is too risky in one round: validate the FIFO's FULL mode-3 length (base+window+sprite)
-      against the scanline mode3_end first (standalone), THEN integrate next round.
-  (3) EXPAND (CGB headroom ~800). Lean (1) or (2) — the integrate is where the timing tail unlocks.
-  KEY: FIFO is complete+validated (pixels+timing). render_scanline + obj_mode3_penalty exposed. --cgb 2.5M DS.
+NEXT ROUND SEED (round 44): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) WINDOW mode-3 penalty (the one real FIFO upside): the scanline's mode3_end ignores the window
+      fetcher-restart cost; the FIFO models it. Spike: add ONLY a window mode-3 penalty to mode3_end
+      (tune vs the FIFO's window-line length, keep sprite/base unchanged so calibration holds), re-run
+      the FULL gate. If gambatte window-timing tests newly pass AND nothing regresses, ship. Reversible.
+  (2) EXPAND (CGB headroom ~700; gate ~70s — SPLIT fast/slow gate soon so rounds stay quick).
+  (3) Survey for any LAST M-cycle-resolvable cluster (most remaining are sub-cycle, blocked by the CPU).
+  (4) BIG (weigh, likely defer): per-T-cycle CPU+PPU co-sim — the only path to lcdon 2T / m2int / _ds_.
+      Massive rewrite of a 1842-test emulator; spike-then-migrate; huge regression risk. Don't rush.
+  Lean (1) the window penalty (concrete, bounded, a real shot at new tests) + (2) keep rising.
+  KEY: FIFO complete+validated; mode3_end=172+scx&7+obj_mode3_penalty; FIFO base 171, penalty=obj_pen+3.
   KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.
   KEY: CGB digit tiles are black/white so no RGB formula needed; --cgb for CGB hardware.
