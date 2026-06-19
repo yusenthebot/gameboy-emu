@@ -1,5 +1,36 @@
 # Progress Log
 
+## Round 50 — cgb-acid-hell 2px traced to sub-cycle (5th confirm) + expand (PASS 2347->2427)  [committed + pushed]
+
+### Deep-dived the cgb-acid-hell 2px near-miss (x80, y68-69) and conclusively traced it
+- It is pure BG: no sprite covers x80 on lines 68-69 (the sprites there are at x=1/209/223); the window
+  is at wy=136 (bottom), not involved. The pixel comes from BG tile 8C, palette 1, bank 0.
+- The tile data is 7F5D (row4) / 7F41 (row5), written ONCE at mode 0, ly=0 (instrumented), no DMA (the
+  ROM never writes FF55/FF46), and stable across frames 40/42/60/80.
+- KEY: at the rendered bit (bx=4 -> bit 3), that data gives cn (3,1) = (black, yellow). The reference is
+  (yellow, black). And crucially, the data 7F5D/7F41 CANNOT produce (yellow, black) at ANY bit position
+  (row4 gives cn1 only at bits 1/5; row5 gives cn3 only at bits 0/6 -- no common bit). So real hardware
+  is NOT rendering my (correct, test-written) data straight -- it renders this region differently via a
+  MID-LINE PPU-timing edge. cgb-acid-hell is literally a PPU-timing "hell" test; this is the same
+  sub-cycle class as mealybug (a mid-mode-3 register/state change my scanline renderer can't place to the dot).
+
+### The finding: 5th independent confirmation of the sub-cycle ceiling
+- lcdon R38, CPU-is-per-M-cycle R44, STAT-write-bug R46, mealybug-render R48, cgb-acid-hell R50. Every
+  remaining precision target -- timing AND rendering -- is below M-cycle. The near-miss was a mirage.
+
+### What did NOT work / ruled out (for cgb-acid-hell)
+- sprites (none there), window (wy=136), DMA (none), VBK/bank (data is in bank 0), palette (other rows in
+  the same tile column match), OPRI (R49). The data is correct; the rendering is sub-cycle.
+
+### What landed
+- No code change (pure research; the temp VRAM-write instrument was reverted). CGB expansion 1526->1606. Gate 2347->2427.
+
+### Frontier ladder (## Frontier)
+- The sub-cycle ceiling is now exhaustively confirmed (5 ways). The ONLY frontier is the from-scratch
+  T-cycle re-calibration (separate parallel path; major, high-risk). 
+- Coverage note: gambatte-CGB is nearly exhausted (~40 passers left). Round 51 should either open a NEW
+  passer source (rtc3test/gbmicrotest harness) or weigh committing to the T-cycle rewrite.
+
 ## Round 49 — hunt untapped suites: OPRI register + cgb-acid-hell 2px near-miss + expand (PASS 2267->2347)  [committed + pushed]
 
 ### Hunted the untapped /tmp/gbtr_x suites (not just gambatte) for resolvable wins

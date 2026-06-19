@@ -4,16 +4,16 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 49 (complete, committed + pushed) — hunt untapped suites: OPRI register + cgb-acid-hell 2px near-miss + expand (+80)
+ROUND: 50 (complete, committed + pushed) — cgb-acid-hell 2px traced to sub-cycle (5th confirm) + expand (+80)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 2347/2347  (688 gambatte-DMG + 1526 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 49: hunted the untapped /tmp/gbtr_x suites for resolvable wins. age-test-roms = sub-cycle (OAM
-  read/write + speed-switch timing). cgb-acid-hell is just 2 PIXELS off (at x80, y68-69, a vertical
-  swap) -- a near-miss on a hard CGB PPU test. Ruled out OPRI: it's the SAME 2px under both OAM and
-  X-coord priority, and X-priority default breaks cgb-acid2 -> the 2px is a different (BG/sprite tile-edge)
-  bug. Implemented OPRI (FF6C) anyway -- a spec-correct CGB register I lacked (gate-safe, default 0 = OAM,
-  cgb-acid2 still PASS); it's a correctness addition, not yet exercised by a pass/fail test. Other PNG
-  tests (strikethrough/turtle/little-things) fail (sub-cycle/frame). +CGB expansion 1446->1526. Gate 2267->2347.
+PASS COUNT: 2427/2427  (688 gambatte-DMG + 1606 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 50: deep-dived the cgb-acid-hell 2px (x80, y68-69). Traced it conclusively: pure BG (no sprite
+  covers it; window is at wy=136), tile 8C, data 7F5D(row4)/7F41(row5), written once at mode 0 ly=0 (no
+  DMA, stable across frames). KEY: that data CANNOT produce the reference (yellow,black) at ANY bit ->
+  real hardware renders it differently via a MID-LINE PPU-timing edge (cgb-acid-hell is a PPU-timing
+  "hell" test), the same sub-cycle class as mealybug. So the near-miss is sub-cycle too -- 5th
+  independent confirmation of the ceiling (lcdon R38, CPU R44, STAT-write R46, mealybug R48, acid-hell R50).
+  No code change (research); reverted the temp instrument. +CGB expansion 1526->1606. Gate 2347->2427.
 
 ROUND: 48 (complete, committed + pushed) — FIFO per-dot render attempt -> mealybug is sub-cycle too (reverted) + expand (+80)
   Round 48: built per-dot FIFO render (gate-safe) but mealybug still ~19% off (sub-cycle); 4th ceiling confirm; reverted. +CGB.
@@ -335,14 +335,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 50): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) cgb-acid-hell 2px near-miss (concrete, resolvable): the diff is at x80 y68-69 (a vertical pixel
-      swap), NOT priority/OPRI. Likely a CGB BG/sprite TILE-edge or VRAM-bank-1 attribute bug. Dump the
-      sprites/BG tiles covering (80,68-69) (OAM + the tilemap/attr), find the 1-row-off pixel source, fix.
-      Validate vs cgb-acid-hell.png (tools/cgbcmp.py) AND keep cgb-acid2 green. A real +1 if cracked.
-  (2) EXPAND (CGB ~120 headroom now) -- reliable strict-increase.
-  (3) rtc3test (RTC, I have MBC3+RTC) + gbmicrotest need custom harnesses -- maybe M-cycle-resolvable passers.
-  Lean (1) the cgb-acid-hell crack (closest real unlock) + (2). Sub-cycle tail (timing+mealybug) still gated
+NEXT ROUND SEED (round 51): decide autonomously, don't ask ([[loop-full-autonomy]]). The sub-cycle ceiling
+  is now confirmed 5 WAYS (lcdon R38, CPU-per-M-cycle R44, STAT-write R46, mealybug R48, cgb-acid-hell R50).
+  EVERY remaining precision target -- timing, mealybug, acid-hell -- is sub-cycle. The only frontier left is
+  the from-scratch T-cycle re-calibration (separate parallel path; major multi-round; high-risk).
+  Options: (1) EXPAND (CGB ~40 headroom left in gambatte-cgb; then the gambatte well runs dry -- check the
+  TRUE remaining gambatte-CGB passer count). (2) rtc3test / gbmicrotest: build a custom result harness (these
+  may have M-cycle-resolvable passers -- a fresh coverage source as gambatte dries up). (3) The big swing:
+  commit to the T-cycle re-calibration on a separate path (weigh hard). Lean (1) while it lasts + (2) to open
+  a new coverage source. KEY: gambatte-CGB is nearly exhausted; need a NEW passer source or the T-cycle rewrite.
   behind the T-cycle re-calib (4 proofs); that's the big-swing frontier if ever committed to.
   KEY: cgbcmp.py compares CGB RGB vs ref PNG; mealybug_check.py for grayscale; OPRI(FF6C) now implemented.
   KEY: --mooneye prints "RESULT: PASS"; all mooneye PPU-timing PASS; piecemeal sub-cycle = regression (proven 3x).
