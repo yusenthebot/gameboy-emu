@@ -71,40 +71,33 @@ int main(int argc, char **argv) {
     }
 
     if (fifo_selftest) {
-        /* Pixel-FIFO BG+window renderer (T-cycle PPU spike): validate it
-         * reproduces the BG/window formula across SCX/SCY/WX/line, no ROM. */
+        /* Pixel-FIFO BG+window+sprite renderer (T-cycle PPU spike): validate it
+         * matches the scanline renderer across size/WX/SCX/line, no ROM. */
         memset(&gb, 0, sizeof gb);
-        gb.lcdc = 0xF1; gb.bgp = 0xE4;     /* LCD, win-map@9C00, win-en, tiles@8000, BG-map@9800 */
-        gb.wy = 0;
-        for (int i = 0; i < 0x400; i++) gb.vram[0x1800 + i] = (u8)(i * 7 + 3);    /* BG  map 9800 */
-        for (int i = 0; i < 0x400; i++) gb.vram[0x1C00 + i] = (u8)(i * 11 + 5);   /* win map 9C00 */
-        for (int i = 0; i < 0x1000; i++) gb.vram[i] = (u8)(i * 37 + 11);          /* tile data    */
+        gb.bgp = 0xE4; gb.obp0 = 0xD2; gb.obp1 = 0x39; gb.wy = 0;
+        for (int i = 0; i < 0x400; i++) { gb.vram[0x1800 + i] = (u8)(i * 7 + 3);
+                                          gb.vram[0x1C00 + i] = (u8)(i * 11 + 5); }
+        for (int i = 0; i < 0x1000; i++) gb.vram[i] = (u8)(i * 37 + 11);
+        for (int i = 0; i < 40; i++) {            /* 40 objects, varied X/Y/attr */
+            gb.oam[i * 4 + 0] = (u8)(16 + (i * 7) % 140);
+            gb.oam[i * 4 + 1] = (u8)((i * 13) % 176);
+            gb.oam[i * 4 + 2] = (u8)(i * 3);
+            gb.oam[i * 4 + 3] = (u8)((i * 5) & 0xF0);
+        }
         int ok = 1, tested = 0;
-        int wxs[] = {0, 3, 7, 23, 80, 160, 167};
-        for (int wi = 0; wi < 7 && ok; wi++)
-        for (int scx = 0; scx < 256 && ok; scx += 51)
-        for (int yy = 0; yy < 144 && ok; yy += 37) {
-            gb.scx = (u8)scx; gb.scy = (u8)(yy * 3 + 7); gb.wx = (u8)wxs[wi];
-            gb.win_line = (u8)(yy & 0xFF);
-            int wx = wxs[wi], wl = gb.win_line, scy = gb.scy;
-            u8 fb[160]; fifo_bg_line(&gb, yy, fb);
-            for (int x = 0; x < 160; x++) {
-                u8 cn;
-                if (x + 7 >= wx) {                       /* window pixel */
-                    int wxp = x - (wx - 7);
-                    u8 id = gb.vram[0x1C00 + (wl / 8) * 32 + (wxp / 8)];
-                    int ta = id * 16;
-                    u8 lo = gb.vram[ta + (wl % 8) * 2], hi = gb.vram[ta + (wl % 8) * 2 + 1];
-                    cn = (u8)((((hi >> (7 - (wxp % 8))) & 1) << 1) | ((lo >> (7 - (wxp % 8))) & 1));
-                } else {                                 /* background pixel */
-                    int bx = (x + scx) & 0xFF, by = (yy + scy) & 0xFF;
-                    u8 id = gb.vram[0x1800 + (by / 8) * 32 + (bx / 8)];
-                    int ta = id * 16;
-                    u8 lo = gb.vram[ta + (by % 8) * 2], hi = gb.vram[ta + (by % 8) * 2 + 1];
-                    cn = (u8)((((hi >> (7 - (bx % 8))) & 1) << 1) | ((lo >> (7 - (bx % 8))) & 1));
-                }
-                if (fb[x] != (u8)((gb.bgp >> (cn * 2)) & 3)) { ok = 0; break; }
-            }
+        int wxs[] = {7, 40, 167};
+        for (int sz = 0; sz < 2 && ok; sz++)      /* 8x8 and 8x16 objects */
+        for (int wi = 0; wi < 3 && ok; wi++)
+        for (int scx = 0; scx < 256 && ok; scx += 83)
+        for (int yy = 0; yy < 144 && ok; yy += 29) {
+            gb.lcdc = (u8)(0xF3 | (sz ? 0x04 : 0));   /* LCD,winmap,winen,tiles,(size),sprites,BG */
+            gb.scx = (u8)scx; gb.scy = (u8)(yy * 3 + 1); gb.wx = (u8)wxs[wi];
+            int W = yy & 7;
+            u8 fb[160];
+            gb.win_line = (u8)W; fifo_bg_line(&gb, yy, fb);
+            gb.win_line = (u8)W; render_scanline(&gb, yy);
+            for (int x = 0; x < 160; x++)
+                if (fb[x] != gb.fb[yy * 160 + x]) { ok = 0; break; }
             tested++;
         }
         fprintf(stderr, "RESULT: %s (%d lines)\n", ok ? "PASS" : "FAIL", tested);

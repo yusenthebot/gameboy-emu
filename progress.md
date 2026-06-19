@@ -1,5 +1,30 @@
 # Progress Log
 
+## Round 41 — FIFO migration step 2b: sprite fetch (pixels) + expand (PASS 1592->1672)  [committed + pushed]
+
+### Frontier progress (T-cycle PPU migration, step 2b)
+- src/ppu_fifo.c now renders a FULL DMG scanline: BG + window + OBJECTS. Sprite path: select up to 10
+  on the line (OAM order), precompute each one's row bytes (Y-flip + 8x16 tile pick), sort by
+  (X, OAM-index). A per-dot 8-deep OBJ FIFO shifts with the mixer; when the mixer reaches an object's
+  leftmost visible pixel it mixes the object's pixels into transparent OBJ-FIFO slots (so lower-X /
+  lower-index wins), with the off-screen-left offset handled. The mixer outputs OBJ (via OBP0/1) when
+  it's non-transparent and not (behind-BG over a non-zero BG pixel), else BG.
+- Exposed render_scanline + obj_mode3_penalty (were static in ppu.c) as validation oracles.
+- VALIDATED (--fifo-selftest): pixel-IDENTICAL to render_scanline across 120 size/WX/SCX/line combos
+  (8x8 and 8x16, WX in {7,40,167}, 40 objects with varied X/Y/flip/palette/priority). Standalone:
+  the real PPU (ppu.c) is untouched, so zero risk to the gate.
+
+### What landed
+- The sprite-pixel step (frontier; --fifo-selftest was already gated) + CGB expansion 771->851. Gate
+  1592 -> 1672. The FIFO is now a COMPLETE pixel pipeline (BG+window+sprites).
+
+### Frontier ladder (## Frontier)
+- Step 1 BG ✓, step 2a window ✓, step 2b sprite PIXELS ✓ (this round).
+- Step 2c (NEXT): sprite TIMING — the per-object mode-3 STALL (penalty EMERGES from fetcher pauses);
+  validate the FIFO mode-3 length vs obj_mode3_penalty (mind its -3 line fudge).
+- Step 3: integrate as the real PPU's mode-3 driver; drop -3/+8 calibration; re-pass acid2/intr_2.
+- Step 4: T-cycle the mode transitions -> unlock lcdon 2T / m2int / oamdma sub-cycle.
+
 ## Round 40 — FIFO migration step 2: window fetch + expand (PASS 1514->1592)  [committed + pushed]
 
 ### Frontier progress (T-cycle PPU migration, step 2)

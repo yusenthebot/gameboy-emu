@@ -37,6 +37,33 @@ int fifo_bg_line(GB *g, int y, u8 *out) {
     int by = (g->scy + y) & 0xFF, trow = by & 7, mapy = (by >> 3) & 0x1F;
     int wl = g->win_line, wtrow = wl & 7, wmapy = (wl >> 3) & 0x1F;
 
+    /* Select up to 10 objects on this line (OAM order), precompute their row
+     * bytes, and sort by (X, OAM index) so lower-X / lower-index win priority. */
+    int obj_en = (g->lcdc & 0x02) != 0;
+    int height = (g->lcdc & 0x04) ? 16 : 8;
+    struct objsel { int x, fetched; u8 lo, hi, attr; } sp[10]; int oamidx[10]; int nsp = 0;
+    if (obj_en) {
+        for (int i = 0; i < 40 && nsp < 10; i++) {
+            int sy = g->oam[i * 4], top = sy - 16;
+            if (y < top || y >= top + height) continue;
+            int row = y - top; u8 attr = g->oam[i * 4 + 3];
+            if (attr & 0x40) row = height - 1 - row;
+            int tile = g->oam[i * 4 + 2];
+            if (height == 16) { tile &= 0xFE; if (row >= 8) { tile |= 1; row -= 8; } }
+            u16 ta = 0x8000 + tile * 16 + row * 2;
+            sp[nsp].x = g->oam[i * 4 + 1]; sp[nsp].attr = attr; sp[nsp].fetched = 0;
+            sp[nsp].lo = fifo_vram(g, ta); sp[nsp].hi = fifo_vram(g, ta + 1);
+            oamidx[nsp] = i; nsp++;
+        }
+        for (int a = 0; a < nsp - 1; a++)               /* stable sort by (x, oam) */
+            for (int b = a + 1; b < nsp; b++)
+                if (sp[b].x < sp[a].x || (sp[b].x == sp[a].x && oamidx[b] < oamidx[a])) {
+                    struct objsel t = sp[a]; sp[a] = sp[b]; sp[b] = t;
+                    int ti = oamidx[a]; oamidx[a] = oamidx[b]; oamidx[b] = ti;
+                }
+    }
+    u8 obj_cn[8] = {0}, obj_pal[8] = {0}, obj_bh[8] = {0};   /* OBJ FIFO (8-deep) */
+
     u8 fifo[16]; int fhead = 0, flen = 0;
     int fetch_col = 0, fstate = 0, ftimer = 0;
     u16 ftaddr = 0; u8 flo = 0, fhi = 0;
@@ -78,8 +105,38 @@ int fifo_bg_line(GB *g, int y, u8 *out) {
         }
         if (flen > 0) {
             u8 cn = fifo[fhead]; fhead = (fhead + 1) & 15; flen--;
-            if (discard > 0) discard--;
-            else out[out_x++] = (u8)((g->bgp >> (cn * 2)) & 3);
+            if (discard > 0) { discard--; }
+            else {
+                /* sprite fetch: mix every object whose leftmost visible pixel is at
+                 * out_x into the OBJ FIFO (transparent slots only -> X/index order wins). */
+                for (int s = 0; s < nsp; s++) {
+                    if (sp[s].fetched || sp[s].x >= 168) continue;
+                    int left = sp[s].x - 8;
+                    if (left > out_x) break;            /* sorted by x: none earlier remain */
+                    int off = (left < out_x) ? (out_x - left) : 0;   /* off-screen-left */
+                    sp[s].fetched = 1;
+                    for (int p = off; p < 8; p++) {
+                        int bit = (sp[s].attr & 0x20) ? p : (7 - p);
+                        u8 c = (u8)((((sp[s].hi >> bit) & 1) << 1) | ((sp[s].lo >> bit) & 1));
+                        int pos = p - off;
+                        if (c && obj_cn[pos] == 0) {     /* fill transparent slot */
+                            obj_cn[pos] = c;
+                            obj_pal[pos] = (sp[s].attr & 0x10) ? g->obp1 : g->obp0;
+                            obj_bh[pos] = (sp[s].attr & 0x80) ? 1 : 0;
+                        }
+                    }
+                }
+                u8 shade;
+                if (obj_cn[0] && !(obj_bh[0] && cn != 0))
+                    shade = (u8)((obj_pal[0] >> (obj_cn[0] * 2)) & 3);
+                else
+                    shade = (u8)((g->bgp >> (cn * 2)) & 3);
+                out[out_x++] = shade;
+                for (int p = 0; p < 7; p++) {            /* shift the OBJ FIFO */
+                    obj_cn[p] = obj_cn[p + 1]; obj_pal[p] = obj_pal[p + 1]; obj_bh[p] = obj_bh[p + 1];
+                }
+                obj_cn[7] = obj_pal[7] = obj_bh[7] = 0;
+            }
         }
         dot++;
     }

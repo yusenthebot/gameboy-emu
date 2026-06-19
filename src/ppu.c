@@ -211,7 +211,7 @@ static void render_scanline_cgb(GB *g, int y) {
 /* The standard DMG 4-shade grayscale, for the color framebuffer / --rgb dumps. */
 static const u32 DMG_GRAY[4] = {0xFFFFFF, 0xAAAAAA, 0x555555, 0x000000};
 
-static void render_scanline(GB *g, int y) {
+void render_scanline(GB *g, int y) {
     if (g->cgb) { render_scanline_cgb(g, y); return; }
     u8 bg_colnum[160];
     render_bg_window(g, y, bg_colnum);
@@ -227,7 +227,7 @@ static void render_scanline(GB *g, int y) {
  * Pixel) - 2 dots (>=0); then a flat 6 dots. An object at OAM X=0 (off-screen left)
  * is treated as offset 0 regardless of SCX; objects at X>=168 are off-screen right
  * and not drawn. */
-static int obj_mode3_penalty(GB *g, int ly) {
+int obj_mode3_penalty(GB *g, int ly) {
     if (!(g->lcdc & LCDC_OBJ_EN)) return 0;
     int height = (g->lcdc & LCDC_OBJ_SIZE) ? 16 : 8;
     typedef struct { int x, oam; } Obj;

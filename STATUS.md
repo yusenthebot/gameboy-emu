@@ -4,9 +4,19 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 40 (complete, committed + pushed) — FIFO migration step 2: window fetch + expand (+78)
+ROUND: 41 (complete, committed + pushed) — FIFO migration step 2b: SPRITE fetch (pixels) + expand (+80)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1592/1592  (688 gambatte-DMG + 771 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 1672/1672  (688 gambatte-DMG + 851 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 41: FIFO step 2b = SPRITE fetch. src/ppu_fifo.c now renders a FULL DMG scanline: BG + window +
+  objects via a per-dot 8-deep OBJ FIFO (10/line select, (X,OAM-index) sort, transparent-slot priority,
+  off-screen-left offset, 8x8/8x16, OBP0/1 + behind-BG mix). Exposed render_scanline + obj_mode3_penalty
+  (were static) as validation oracles. VALIDATED (--fifo-selftest): pixel-IDENTICAL to render_scanline
+  across 120 size/WX/SCX/line combos. Still standalone (ppu.c logic untouched, zero gate risk). +CGB
+  expansion 771->851. Gate 1592 -> 1672.
+  NEXT FIFO step: the sprite TIMING (per-object mode-3 STALL -> penalty EMERGES; validate vs obj_mode3_penalty).
+
+ROUND: 40 (complete, committed + pushed) — FIFO migration step 2: window fetch + expand (+78)
+  Round 40: FIFO window fetch (BG+window pixel-exact 168 combos) + expand.
   Round 40: FIFO migration step 2 = WINDOW fetch. src/ppu_fifo.c now renders BG+window: at the window
   trigger (out_x+7>=WX) the fetcher restarts on the window map (FIFO cleared, win_line/win_map, the
   wx<7 left-discard handled) — the mid-line restart is a real mode-3 extender. VALIDATED (--fifo-selftest
@@ -293,15 +303,16 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 41): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) FIFO step 2b: SPRITE fetch in src/ppu_fifo.c — OBJ FIFO + BG/OBJ priority mix, and the per-sprite
-      mode-3 stall (fetcher pauses; the penalty EMERGES). Validate pixels by exposing render_scanline
-      (make it non-static) + the timing vs obj_mode3_penalty (oracle-validated) across OAM configs.
-      The TIMING piece (the FIFO's natural penalty, no -3 fudge) = the migration's key milestone.
-  (2) FIFO step 3: once BG+win+sprite all validated, integrate the FIFO as the real PPU mode-3 driver.
-  (3) EXPAND (CGB has headroom ~1000 left; DMG ~capped; gate ~58s). 
-  Lean (1) sprite fetch + a little (3) CGB expand. Spike-then-migrate; never break the gate at a boundary.
-  KEY: render_scanline + obj_mode3_penalty are static in ppu.c — expose for FIFO validation.
+NEXT ROUND SEED (round 42): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) FIFO step 2c: sprite TIMING. In ppu_fifo.c, make the per-object mode-3 STALL emerge — when the
+      mixer reaches an object, the BG fetcher pauses (finish current fetch + the sprite fetch). The
+      penalty should EMERGE; validate the FIFO mode-3 length vs obj_mode3_penalty (oracle-validated,
+      note its -3 line fudge: the FIFO's natural length should be obj_mode3_penalty + ~constant).
+  (2) FIFO step 3: integrate the FIFO as the real PPU's mode-3 driver (drop the -3/+8 calibration);
+      re-pass acid2 + intr_2 + all gambatte PPU; then the 2T lcdon / m2int / sub-cycle tail open up.
+  (3) EXPAND (CGB headroom ~900 left; DMG capped; gate ~60s — consider fast/slow split soon).
+  Lean (1) sprite timing (the milestone: penalty EMERGES) + a little CGB (3). Spike-then-migrate.
+  KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.
   KEY: CGB digit tiles are black/white so no RGB formula needed; --cgb for CGB hardware.
   NOTE: --apu-activity is cycle-based (robust). gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.

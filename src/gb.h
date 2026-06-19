@@ -188,7 +188,9 @@ int  cart_load_battery(GB *gb, const char *path);
 u8   bus_read(GB *gb, u16 addr);
 void bus_write(GB *gb, u16 addr, u8 val);
 void hdma_hblank_step(GB *gb);          /* CGB HBlank VRAM DMA: one block per HBlank */
-int  fifo_bg_line(GB *g, int y, u8 *out);  /* pixel-FIFO BG renderer (T-cycle PPU spike) */
+int  fifo_bg_line(GB *g, int y, u8 *out);  /* pixel-FIFO BG+window+sprite renderer (T-cycle PPU spike) */
+void render_scanline(GB *g, int y);        /* scanline renderer (exposed for FIFO validation) */
+int  obj_mode3_penalty(GB *g, int ly);     /* calibrated sprite mode-3 penalty (FIFO timing oracle) */
 void dma_tick(GB *gb, int tcycles);
 
 /* timer.c */
