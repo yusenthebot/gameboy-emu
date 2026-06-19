@@ -132,7 +132,84 @@ static void render_sprites(GB *g, int y, const u8 *bg_colnum) {
     }
 }
 
+/* CGB color rendering: BG/window tiles carry per-tile attributes in VRAM bank 1
+ * (palette/bank/flip/priority), colors come from the 8 BG/OBJ palettes (RGB555),
+ * and objects are priority-ordered by OAM index. Output is RGB888 in fb_rgb. */
+static inline u32 rgb555(u16 c) {
+    int r = c & 0x1F, g = (c >> 5) & 0x1F, b = (c >> 10) & 0x1F;
+    return ((u32)((r << 3) | (r >> 2)) << 16) |
+           ((u32)((g << 3) | (g >> 2)) << 8)  |
+            (u32)((b << 3) | (b >> 2));
+}
+
+static void render_scanline_cgb(GB *g, int y) {
+    u8 bg_cn[160], bg_pr[160];     /* BG color number + priority bit, per pixel */
+    bool win_on = (g->lcdc & LCDC_WIN_EN) && (y >= g->wy);
+    u16 bg_map = (g->lcdc & LCDC_BG_MAP) ? 0x9C00 : 0x9800;
+    u16 win_map = (g->lcdc & LCDC_WIN_MAP) ? 0x9C00 : 0x9800;
+    bool unsigned_tiles = (g->lcdc & LCDC_TILE_DATA) != 0;
+    bool window_used = false;
+
+    for (int x = 0; x < 160; x++) {
+        u16 map; int px, py;
+        if (win_on && x + 7 >= g->wx) {
+            window_used = true;
+            int wx_px = x - (g->wx - 7);
+            map = win_map + (g->win_line / 8) * 32 + (wx_px / 8);
+            px = wx_px % 8; py = g->win_line % 8;
+        } else {
+            int bx = (x + g->scx) & 0xFF, by = (y + g->scy) & 0xFF;
+            map = bg_map + (by / 8) * 32 + (bx / 8);
+            px = bx % 8; py = by % 8;
+        }
+        int moff = map - 0x8000;
+        u8 id = g->vram[moff];                       /* tile id (bank 0) */
+        u8 attr = g->vram[0x2000 + moff];            /* attribute (bank 1) */
+        int pal = attr & 7, bank = (attr >> 3) & 1;
+        if (attr & 0x40) py = 7 - py;                /* Y-flip */
+        int bit = (attr & 0x20) ? px : (7 - px);     /* X-flip */
+        u16 taddr = unsigned_tiles ? 0x8000 + id * 16 : 0x9000 + (i16)((i8)id) * 16;
+        int toff = bank * 0x2000 + (taddr - 0x8000) + py * 2;
+        u8 cn = tile_colnum(g->vram[toff], g->vram[toff + 1], bit);
+        bg_cn[x] = cn; bg_pr[x] = (attr >> 7) & 1;
+        u16 c = g->bgpal[pal * 8 + cn * 2] | (g->bgpal[pal * 8 + cn * 2 + 1] << 8);
+        g->fb_rgb[y * 160 + x] = rgb555(c);
+    }
+    if (window_used) g->win_line++;
+
+    if (!(g->lcdc & LCDC_OBJ_EN)) return;
+    int height = (g->lcdc & LCDC_OBJ_SIZE) ? 16 : 8;
+    int sel[10], n = 0;
+    for (int i = 0; i < 40 && n < 10; i++) {
+        int top = g->oam[i * 4] - 16;
+        if (y >= top && y < top + height) sel[n++] = i;
+    }
+    bool bg_master = (g->lcdc & LCDC_BG_EN) != 0;    /* LCDC.0 = BG/win master priority */
+    for (int s = n - 1; s >= 0; s--) {               /* low OAM index drawn last = on top */
+        int i = sel[s];
+        u8 sy = g->oam[i * 4], sx = g->oam[i * 4 + 1], tile = g->oam[i * 4 + 2], attr = g->oam[i * 4 + 3];
+        int top = sy - 16, row = y - top;
+        if (attr & 0x40) row = height - 1 - row;     /* Y-flip */
+        if (height == 16) { tile &= 0xFE; if (row >= 8) { tile |= 1; row -= 8; } }
+        int bank = (attr >> 3) & 1, pal = attr & 7;
+        int toff = bank * 0x2000 + tile * 16 + row * 2;
+        u8 lo = g->vram[toff], hi = g->vram[toff + 1];
+        bool obj_behind = (attr & 0x80) != 0;
+        for (int p = 0; p < 8; p++) {
+            int xx = sx - 8 + p;
+            if (xx < 0 || xx >= 160) continue;
+            int bit = (attr & 0x20) ? p : (7 - p);   /* X-flip */
+            u8 cn = tile_colnum(lo, hi, bit);
+            if (cn == 0) continue;
+            if (bg_master && bg_cn[xx] != 0 && (bg_pr[xx] || obj_behind)) continue;  /* BG wins */
+            u16 c = g->objpal[pal * 8 + cn * 2] | (g->objpal[pal * 8 + cn * 2 + 1] << 8);
+            g->fb_rgb[y * 160 + xx] = rgb555(c);
+        }
+    }
+}
+
 static void render_scanline(GB *g, int y) {
+    if (g->cgb) { render_scanline_cgb(g, y); return; }
     u8 bg_colnum[160];
     render_bg_window(g, y, bg_colnum);
     render_sprites(g, y, bg_colnum);

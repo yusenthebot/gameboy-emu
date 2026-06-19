@@ -4,9 +4,17 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 24 (complete, committed + pushed) — CGB (Game Boy Color) PPU — cgb-acid2 PERFECT (+1)
+SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay SDL2 frontend: video[DMG+CGB color]+audio+save+rewind)
+PASS COUNT: 127/127  (15 serial + 2 acid2[dmg+cgb] + 9 fh + 2 game + 3 ss + 1 audio + 1 front + 1 dbg + 1 rewind + 92)
+  Round 24: CGB color mode (cart 0x143=0xC0 -> g->cgb). VRAM 2 banks + VBK; BG/OBJ color palette
+  RAM (BCPS/BCPD/OCPS/OCPD); ppu.c render_scanline_cgb (bank-1 tile attributes: palette/bank/flip/
+  priority; OBJ priority by OAM index; LCDC.0 master priority) -> RGB888 fb_rgb via (r<<3)|(r>>2).
+  gbemu --rgb dumps color; tools/cgbcmp.py diffs the paletted reference. +cgb-acid2 = 0/23040 PERFECT.
+  gbplay shows CGB games in color. DMG path untouched (0x80 carts stay DMG). Screenshot: docs/screenshots/cgb-acid2.png.
+
 ROUND: 23 (complete, committed + pushed) — REWIND (回放) — GOAL LIST COMPLETE (+1)
-SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay SDL2 frontend: video+audio+input+save+rewind)
-PASS COUNT: 126/126  (15 serial + acid2 + 9 fh + 2 game + 3 ss + 1 audio + 1 front + 1 dbg + 1 rewind + 92)
+  Round 23: in-memory snapshot ring (state.c gb_snapshot/restore); gbplay Backspace rewind; +1 self-test.
   Round 23: in-memory snapshot/restore (state.c: gb_snapshot/gb_restore/gb_snapshot_size) + a
   rewind ring in gbplay (hold Backspace -> step back ~9s; capture every 6 frames, 120 slots).
   +1 gate test (--rewind-selftest): snapshot round-trip exact + rewind-then-replay bit-identical.
@@ -132,16 +140,19 @@ GOAL-LIST STATUS: ALL STATED ITEMS DONE ✓ — CPU+timing, scanline PPU+acid2, 
   STAT quirks, 调试器, 即时存档, 回放. The user's explicit goal list is fully ticked. Further work =
   depth (more timing-tail tests) or breadth (MBC3+RTC, CGB color mode, more games).
 
-NEXT ROUND SEED (round 24): the stated goal list is COMPLETE. Keep evolving (decide autonomously,
-  don't ask — [[loop-full-autonomy]]). Best BREADTH/DEPTH options:
-  (1) MBC3 + RTC + battery .sav — biggest game-compat win (Pokemon Gold/Silver, Zelda-era). MBC3
-      banking + the RTC registers + .sav persistence; gate-verifiable via a .sav round-trip + real
-      MBC3 game frame-hash if one can be fetched.
-  (2) CGB (Game Boy Color) mode — a large new dimension: CGB palettes/VRAM banks/double-speed/HDMA;
-      would unlock the CGB test suites. Big but high-value (the goal said "DMG/CGB").
-  (3) Battery .sav for the existing MBCs (MBC1/2/5) — load/save cart RAM; verify round-trip.
-  (4) Timing tail only if a clean approach appears (sweep needs Blargg src; wave needs sub-cycle).
-  Lean (1) MBC3+.sav (broadens real-game support + finishes "存档" with battery saves) or (3) .sav.
+CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in place (mode detect,
+  VRAM banks, palette RAM, color render, fb_rgb, --rgb dump, cgbcmp.py). NOT yet done: WRAM banking
+  (SVBK FF70), double-speed (KEY1), HDMA (FF51-55 general + HBlank DMA), CGB OBJ priority modes,
+  the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
+  same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
+
+NEXT ROUND SEED (round 25): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) CGB depth: WRAM banking + double-speed + HDMA -> unlocks CGB mooneye/same-suite tests + lets
+      real CGB games run correctly. Or cgb-acid-hell (sprite priority torture). Each gate-verifiable.
+  (2) MBC3 + RTC + battery .sav — Pokemon/Zelda-era games; mbc3-tester + rtc3test ROMs are available
+      in /tmp/gbtr_x. .sav round-trip + the test ROMs are gate-verifiable.
+  (3) Battery .sav for existing MBCs (load/save cart RAM); .sav round-trip gate test.
+  Lean (2) MBC3+RTC (mbc3-tester/rtc3test give real gate tests) or (1) CGB double-speed/HDMA.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

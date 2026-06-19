@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-126%2F126%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-127%2F127%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -25,6 +25,7 @@ sub-instruction timing tests.
 | **Blargg `mem_timing`** | read / write / modify → `Passed` |
 | **Blargg `halt_bug`** | `Passed` (HALT-bug correct) |
 | **dmg-acid2** | **0 / 23040 pixel mismatches** vs the official reference |
+| **cgb-acid2** (Game Boy **Color** PPU) | **0 / 23040** pixel mismatches, in color |
 | **Mooneye-GB acceptance (DMG)** | **51 / 66** |
 | **Mooneye-GB MBC** (MBC1/2/5) | **27 / 28** |
 | **Blargg `dmg_sound`** (APU) | **5 / 12** subtests |
@@ -32,7 +33,7 @@ sub-instruction timing tests.
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **126/126 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **127/127 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -155,7 +156,7 @@ make                                  # builds ./gbemu (headless)
 ./gbemu game.gb --frames 200 --load-state s.gss --png out.png
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 126/126
+./tools/run_tests.sh                  # -> PASS: 127/127
 ```
 
 ### Play it (interactive SDL2 frontend)

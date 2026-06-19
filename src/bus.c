@@ -64,7 +64,8 @@ static void dma_write(GB *gb, u8 val) {
 
 u8 bus_read(GB *gb, u16 addr) {
     if (addr < 0x8000) return cart_read(gb, addr);
-    if (addr < 0xA000) return ppu_vram_accessible(gb) ? gb->vram[addr - 0x8000] : 0xFF;
+    if (addr < 0xA000) return ppu_vram_accessible(gb)
+        ? gb->vram[(gb->vbk & 1) * 0x2000 + (addr - 0x8000)] : 0xFF;
     if (addr < 0xC000) return cart_read(gb, addr);
     if (addr < 0xE000) return gb->wram[addr - 0xC000];
     if (addr < 0xFE00) return gb->wram[addr - 0xE000];   /* echo RAM */
@@ -84,6 +85,11 @@ u8 bus_read(GB *gb, u16 addr) {
             case 0xFF44: case 0xFF45: case 0xFF47: case 0xFF48:
             case 0xFF49: case 0xFF4A: case 0xFF4B:
                 return ppu_read(gb, addr);
+            case 0xFF4F: return gb->cgb ? (gb->vbk | 0xFE) : 0xFF;       /* VBK */
+            case 0xFF68: return gb->cgb ? gb->bcps : 0xFF;               /* BCPS */
+            case 0xFF69: return gb->cgb ? gb->bgpal[gb->bcps & 0x3F] : 0xFF;
+            case 0xFF6A: return gb->cgb ? gb->ocps : 0xFF;               /* OCPS */
+            case 0xFF6B: return gb->cgb ? gb->objpal[gb->ocps & 0x3F] : 0xFF;
             default:
                 return gb->io[addr - 0xFF00] | HWIO_OR[addr - 0xFF00];
         }
@@ -94,7 +100,10 @@ u8 bus_read(GB *gb, u16 addr) {
 
 void bus_write(GB *gb, u16 addr, u8 val) {
     if (addr < 0x8000) { cart_write(gb, addr, val); return; }
-    if (addr < 0xA000) { if (ppu_vram_accessible(gb)) gb->vram[addr - 0x8000] = val; return; }
+    if (addr < 0xA000) {
+        if (ppu_vram_accessible(gb)) gb->vram[(gb->vbk & 1) * 0x2000 + (addr - 0x8000)] = val;
+        return;
+    }
     if (addr < 0xC000) { cart_write(gb, addr, val); return; }
     if (addr < 0xE000) { gb->wram[addr - 0xC000] = val; return; }
     if (addr < 0xFE00) { gb->wram[addr - 0xE000] = val; return; }  /* echo */
@@ -119,6 +128,17 @@ void bus_write(GB *gb, u16 addr, u8 val) {
             case 0xFF4A: case 0xFF4B:
                 ppu_write(gb, addr, val); return;
             case 0xFF44: return; /* LY is read-only */
+            case 0xFF4F: if (gb->cgb) gb->vbk = val & 1; return;          /* VBK */
+            case 0xFF68: if (gb->cgb) gb->bcps = val; return;             /* BCPS */
+            case 0xFF69: if (gb->cgb) {                                   /* BCPD */
+                gb->bgpal[gb->bcps & 0x3F] = val;
+                if (gb->bcps & 0x80) gb->bcps = 0x80 | ((gb->bcps + 1) & 0x3F);
+            } return;
+            case 0xFF6A: if (gb->cgb) gb->ocps = val; return;            /* OCPS */
+            case 0xFF6B: if (gb->cgb) {                                  /* OCPD */
+                gb->objpal[gb->ocps & 0x3F] = val;
+                if (gb->ocps & 0x80) gb->ocps = 0x80 | ((gb->ocps + 1) & 0x3F);
+            } return;
             default:
                 gb->io[addr - 0xFF00] = val; return;
         }

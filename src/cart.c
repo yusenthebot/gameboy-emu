@@ -41,6 +41,10 @@ int cart_load(GB *gb, const char *path) {
 
     memcpy(c->title, rom + 0x134, 16);
     c->title[16] = 0;
+    /* Run in CGB mode for CGB-only carts (0xC0). CGB-compatible carts (0x80) are
+     * DMG games that also support color via a boot-ROM compatibility palette we
+     * don't emulate, so they render in DMG mode (correct grayscale). */
+    gb->cgb = (rom[0x143] == 0xC0);
 
     u8 type = rom[0x147];
     switch (type) {

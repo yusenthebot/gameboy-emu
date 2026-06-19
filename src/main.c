@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
     }
     const char *path = argv[1];
     int frames = 0, mooneye = 0, debug = 0, rewind_test = 0;
-    const char *png_path = NULL, *raw_path = NULL, *keys = NULL;
+    const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
     u64 max_cycles = 350000000ULL;
 
@@ -33,6 +33,7 @@ int main(int argc, char **argv) {
         if (!strcmp(argv[i], "--frames") && i + 1 < argc) frames = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--png") && i + 1 < argc) png_path = argv[++i];
         else if (!strcmp(argv[i], "--raw") && i + 1 < argc) raw_path = argv[++i];
+        else if (!strcmp(argv[i], "--rgb") && i + 1 < argc) rgb_path = argv[++i];
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--debug")) debug = 1;
         else if (!strcmp(argv[i], "--rewind-selftest")) rewind_test = 1;
@@ -171,6 +172,11 @@ int main(int argc, char **argv) {
             FILE *rf = fopen(raw_path, "wb");
             if (rf) { fwrite(gb.fb, 1, sizeof(gb.fb), rf); fclose(rf);
                       fprintf(stderr, "wrote %s\n", raw_path); }
+        }
+        if (rgb_path) {                       /* CGB color framebuffer (raw 0x00RRGGBB) */
+            FILE *rf = fopen(rgb_path, "wb");
+            if (rf) { fwrite(gb.fb_rgb, sizeof(u32), 160 * 144, rf); fclose(rf);
+                      fprintf(stderr, "wrote %s\n", rgb_path); }
         }
         cart_free(&gb);
         return (gb.frame_count >= (u64)frames) ? 0 : 1;

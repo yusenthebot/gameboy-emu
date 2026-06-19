@@ -1,5 +1,30 @@
 # Progress Log
 
+## Round 24 — CGB (Game Boy Color) PPU — cgb-acid2 PERFECT (PASS 126->127)  [committed + pushed]
+
+### What was built (CGB color rendering — past the goal list into breadth)
+- Mode detect: cart 0x143 == 0xC0 -> g->cgb (CGB-only carts run in color; 0x80 CGB-compatible carts
+  stay in DMG mode, since they're DMG games needing a boot compatibility palette we don't emulate —
+  this also keeps every DMG frame-hash test rendering to gb.fb as before).
+- VRAM 2 banks (vram[0x4000] + VBK FF4F); CGB BG/OBJ palette RAM (BCPS/BCPD FF68/69, OCPS/OCPD
+  FF6A/6B, 64 bytes each, auto-increment). All gated on g->cgb so DMG is byte-identical.
+- ppu.c render_scanline_cgb: per-tile attribute from VRAM bank 1 (palette 0-7, tile bank, X/Y flip,
+  BG-priority bit); OBJ priority by OAM index (low index on top); LCDC.0 = master priority; colors
+  from the palettes as RGB555 -> RGB888 via (c<<3)|(c>>2). Output to u32 fb_rgb. DMG render path
+  untouched (branch at the top of render_scanline).
+- gbemu --rgb dumps the color framebuffer; tools/cgbcmp.py decodes the paletted reference PNG and
+  pixel-diffs. gbplay renders fb_rgb (0xFF000000|rgb) for CGB carts.
+
+### Verified
+- +cgb-acid2 = **0/23040 mismatches** vs the official reference (the smiley test, in color — see
+  docs/screenshots/cgb-acid2.png). DMG gate fully restored after fixing the 0x80-detection bug
+  (6 CGB-compatible DMG ROMs had briefly rendered to fb_rgb). Gate 126 -> 127, no regression.
+
+### What did NOT work first / lesson
+- First detection (0x80 OR 0xC0) put CGB-COMPATIBLE DMG test ROMs (halt_bug/mem_timing-2/libbet,
+  0x143=0x80) into CGB mode -> they rendered to fb_rgb, leaving gb.fb blank -> 6 frame-hash FAILs
+  (all the same blank-fb hash). Fix: CGB mode only for 0xC0 (CGB-only). 0x80 = DMG mode.
+
 ## Round 23 — REWIND (回放) — goal list COMPLETE (PASS 125->126)  [committed + pushed]
 
 ### What was built

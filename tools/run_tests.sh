@@ -42,6 +42,13 @@ for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
     else fail=$((fail+1)); row "$name" "FAIL"; fi
 done
 
+# --- CGB color image: cgb-acid2 rendered in color, pixel-diffed vs the reference ---
+total=$((total+1))
+"$BIN" roms/cgb-acid2/cgb-acid2.gbc --frames 40 --rgb /tmp/gbemu_cgb.rgb --cycles 20000000 >/dev/null 2>&1
+if python3 tools/cgbcmp.py roms/cgb-acid2/cgb-acid2-ref.png /tmp/gbemu_cgb.rgb >/dev/null 2>&1; then
+    pass=$((pass+1)); row "cgb-acid2 (color image)" "PASS"
+else fail=$((fail+1)); row "cgb-acid2 (color image)" "FAIL"; fi
+
 # --- framehash ROMs (rom:frames:sha256) verified visually once ---
 # Blargg dmg_sound subtests print "Passed" on screen (no serial); gated by frame hash.
 FRAMEHASH=(

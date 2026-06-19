@@ -138,7 +138,10 @@ int main(int argc, char **argv) {
         }
 
         if (tex) {
-            for (int i = 0; i < LCD_W * LCD_H; i++) pix[i] = PALETTE[gb.fb[i] & 3];
+            if (gb.cgb)
+                for (int i = 0; i < LCD_W * LCD_H; i++) pix[i] = 0xFF000000u | gb.fb_rgb[i];
+            else
+                for (int i = 0; i < LCD_W * LCD_H; i++) pix[i] = PALETTE[gb.fb[i] & 3];
             SDL_UpdateTexture(tex, NULL, pix, LCD_W * sizeof(u32));
             SDL_RenderClear(ren);
             SDL_RenderCopy(ren, tex, NULL, NULL);

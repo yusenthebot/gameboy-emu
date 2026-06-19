@@ -100,7 +100,7 @@ typedef struct GB {
     bool stopped;
 
     /* Memory regions */
-    u8 vram[0x2000];
+    u8 vram[0x4000];        /* 2 banks (CGB); DMG uses bank 0 only */
     u8 wram[0x2000];
     u8 oam[0xA0];
     u8 hram[0x7F];
@@ -131,9 +131,17 @@ typedef struct GB {
     bool stat_line;         /* STAT interrupt line (for rising-edge detection) */
     int  mode3_obj_pen;     /* per-line object mode-3 penalty in dots (cached at mode-3 start) */
     u8  win_line;           /* window internal line counter */
-    u8  fb[160 * 144];      /* rendered shade indices 0..3 (0=light,3=dark) */
+    u8  fb[160 * 144];      /* DMG: rendered shade indices 0..3 (0=light,3=dark) */
+    u32 fb_rgb[160 * 144];  /* CGB: rendered RGB888 (also the frontend's color buffer) */
     bool frame_ready;       /* set when a full frame has been rendered */
     u64 frame_count;        /* frames completed (entered VBlank) */
+
+    /* CGB (Game Boy Color) */
+    bool cgb;               /* CGB mode (cart header 0x143 = 0x80/0xC0) */
+    u8  vbk;                /* VRAM bank select (FF4F bit 0) */
+    u8  bcps, ocps;         /* BG/OBJ palette index + auto-increment (FF68/FF6A) */
+    u8  bgpal[64];          /* 8 BG palettes x 4 colors x RGB555 (FF69) */
+    u8  objpal[64];         /* 8 OBJ palettes x 4 colors x RGB555 (FF6B) */
 
     /* OAM DMA (cycle-accurate: 160 M-cycles, OAM locked during transfer) */
     u8  dma_reg;            /* last value written to FF46 */
