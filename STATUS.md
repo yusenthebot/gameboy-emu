@@ -92,18 +92,14 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 17): DECISION POINT surfaced to owner — the test tail is now all
-  multi-round (no clean +1 left). Best options:
-  (A) Build the dot-stepped pixel-FIFO mode-3 sim (passes intr_2_mode0_timing_sprites +
-      much of wilbertpol gpu). Groundwork ready: docs/ppu-mode3-sprite-penalty.md + the
-      105-row oracle (re-extract from /tmp/ppu_src/intr_2_mode0_timing_sprites.s). Build the
-      sim in Python first, verify against ALL 105 rows, THEN port to C. Highest leverage.
-  (B) APU wave channel (freq timer + DMG wave-RAM access window) for dmg_sound 09/10/12.
-  (C) Interactive minifb/SDL + keyboard + cpal frontend — the big diversification & a stated
-      goal, but NOT headlessly verifiable: best done when the owner can watch it run.
-  (D) sample-accurate same-suite APU (~74 left) — very hard, multi-round.
-  Recommendation: (A) as a dedicated multi-round build, OR (C) if the owner wants to steer
-  toward something they can play. VRAM blocking already landed this round.
+NEXT ROUND SEED (round 17): OWNER CHOSE (A) — build the dot-stepped pixel-FIFO mode-3 sim.
+  Plan: (1) try `gh api` to fetch the Pan Docs / a reference emulator's OBJ-penalty algorithm
+  (WebFetch was 403/404 on travel net; gh api may bypass). (2) Build the sim in Python, verify
+  against ALL 105 oracle rows (re-extract from /tmp/ppu_src/intr_2_mode0_timing_sprites.s; see
+  docs/ppu-mode3-sprite-penalty.md). (3) Port to C: cache per-line at mode-2->3, feed mode3_end.
+  (4) Verify intr_2_mode0_timing_sprites passes + no regression (acid2 0/23040, full gate) +
+  re-check wilbertpol gpu for bonus passes. This is multi-round — land on solid ground each
+  round (don't leave the sim half-wired). Then PUSH (held since flat R16) with the gate increase.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
