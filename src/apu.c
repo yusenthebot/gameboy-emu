@@ -208,8 +208,9 @@ int apu_drain_samples(GB *g, i16 *out, int max_pairs) {
 void apu_tick(GB *g, int tcycles) {
     Apu *a = &g->apu;
     if (a->power) synth_tick(g, tcycles);
-    /* Frame sequencer steps on the falling edge of DIV bit 12 (4.19MHz/8192). */
-    bool bit = (g->div_counter & (1 << 12)) != 0;
+    /* Frame sequencer steps on the falling edge of DIV bit 12 (4.19MHz/8192);
+     * in double-speed DIV runs 2x, so use bit 13 to stay at 512 Hz real-time. */
+    bool bit = (g->div_counter & (1 << (g->double_speed ? 13 : 12))) != 0;
     if (a->div_bit_prev && !bit && a->power) fs_step(g);
     a->div_bit_prev = bit;
 }

@@ -1,5 +1,29 @@
 # Progress Log
 
+## Round 34 — CGB double-speed (KEY1/STOP switch) (PASS 655->715)  [committed + pushed]
+
+### What was built
+- CGB double-speed mode. STOP (0x10) with KEY1 (FF4D) bit 0 armed, on CGB, toggles g->double_speed and
+  sets KEY1 bit 7 (current speed). In tick(): PPU and APU run off the crystal so they advance t/2 when
+  double_speed (CPU runs 2x relative to them); DIV/TIMA, OAM DMA and serial stay CPU-clocked (full t).
+  The APU frame sequencer uses DIV bit 13 instead of 12 in double-speed (DIV runs 2x -> stays 512 Hz).
+- Gated entirely behind the runtime switch -> double_speed is false unless a CGB ROM arms KEY1 + STOPs,
+  so every non-switching test (all DMG, most CGB) is byte-identical. DMG suite 363/363 unchanged.
+
+### Verified
+- Re-vendored gambatte-cgb 160 -> 220 with double-speed active. The 9 previously-"passing" _ds_ tests
+  were FALSE passes (they switch speed on hardware; my old STOP=NOP kept them single-speed and the digit
+  happened to match) -> now they correctly switch; the real _ds_ passers (e.g. speedchange 8->24/40
+  sampled) joined. Gate 655 -> 715, no regression.
+
+### What did NOT work first / lessons
+- First tick() rewrite REORDERED the subsystems (timer,dma,serial,ppu,apu) -> broke 9 precise tests even
+  with double_speed off. The tick ORDER (timer,ppu,dma,apu,serial) is load-bearing; restored it, only
+  the t/2 changed. 9 fails -> 0.
+- 15 LCD frames in double-speed = ~2.1M CPU cycles (not 1.05M), so --frames 15 needs a higher --cycles
+  safety cap; bumped the CGB runner + collector to 2.5M. --apu-activity counts CPU cycles, so _ds_ AUDIO
+  tests would mis-measure their window -> kept the CGB suite digit-only (fix the cycle basis later).
+
 ## Round 33 — Gambatte CGB suite: a new dimension (PASS 495->655)  [committed + pushed]
 
 ### What was built

@@ -158,7 +158,7 @@ done < <(find roms/gambatte \( -name '*.gb' -o -name '*.gbc' \) 2>/dev/null | so
 cpass=0; ctot=0
 while IFS= read -r crom; do
     ctot=$((ctot+1)); total=$((total+1))
-    "$BIN" "$crom" --cgb --frames 15 --rgb /tmp/gembc.rgb --cycles 1500000 >/dev/null 2>&1
+    "$BIN" "$crom" --cgb --frames 15 --rgb /tmp/gembc.rgb --cycles 2500000 >/dev/null 2>&1
     if python3 tools/gambatte_check.py "$(basename "$crom")" /tmp/gembc.rgb cgb >/dev/null 2>&1; then
         cpass=$((cpass+1)); pass=$((pass+1))
     else fail=$((fail+1)); row "gambatte-cgb ${crom#roms/gambatte-cgb/}" "FAIL"; fi

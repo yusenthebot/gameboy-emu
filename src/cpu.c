@@ -32,11 +32,14 @@ static inline bool flag(GB *g, u8 mask) { return (g->f & mask) != 0; }
 
 /* ---- the one place time advances ---- */
 static inline void tick(GB *g, int t) {
+    /* PPU/APU run off the crystal -> half rate in double-speed; DIV/TIMA, OAM DMA
+     * and serial are CPU-clocked (full t). Original tick order preserved. */
+    int rt = g->double_speed ? (t >> 1) : t;
     g->cycles += t;
     timer_tick(g, t);
-    ppu_tick(g, t);
+    ppu_tick(g, rt);
     dma_tick(g, t);
-    apu_tick(g, t);
+    apu_tick(g, rt);
     serial_tick(g, t);
 }
 
@@ -260,7 +263,13 @@ static void execute(GB *g) {
 
     switch (op) {
         case 0x00: return;                                 /* NOP */
-        case 0x10: imm8(g); return;                        /* STOP */
+        case 0x10:                                          /* STOP */
+            if (g->cgb && (g->key1 & 1)) {                   /* armed double-speed switch */
+                g->double_speed = !g->double_speed;
+                g->key1 = g->double_speed ? 0x80 : 0x00;     /* bit7=speed, prepare cleared */
+            }
+            imm8(g);                                         /* STOP is a 2-byte opcode */
+            return;
 
         case 0x01: wBC(g, imm16(g)); return;
         case 0x11: wDE(g, imm16(g)); return;
@@ -447,7 +456,7 @@ void cpu_init_postboot(GB *g) {
     g->sp = 0xFFFE;
     g->pc = 0x0100;
     g->ime = false; g->ime_pending = false;
-    g->halted = false; g->halt_bug = false; g->locked = false;
+    g->halted = false; g->halt_bug = false; g->locked = false; g->double_speed = false;
 
     g->div_counter = 0xABCC;
     g->tima = 0; g->tma = 0; g->tac = 0;

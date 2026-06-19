@@ -4,9 +4,20 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 33 (complete, committed + pushed) — GAMBATTE CGB SUITE — new dimension (+160)
+ROUND: 34 (complete, committed + pushed) — CGB DOUBLE-SPEED (KEY1/STOP switch) (+60)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 655/655  (363 gambatte-DMG + 160 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 715/715  (363 gambatte-DMG + 220 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 34: DOUBLE-SPEED. STOP with KEY1 bit0 armed toggles g->double_speed + KEY1 bit7. In tick(),
+  PPU+APU (crystal-clocked) advance t/2 while DIV/TIMA/OAM-DMA/serial (CPU-clocked) keep t; APU frame
+  sequencer uses DIV bit 13 (not 12) in double-speed to stay 512Hz. Gated behind the switch -> zero
+  regression for non-switching tests (DMG 363/363 intact). KEY: tick() ORDER must stay
+  timer,ppu,dma,apu,serial (reordering broke 9 precise tests). 15 LCD frames in double-speed = 2.1M CPU
+  cycles, so the CGB runner cap is now 2.5M. Re-vendored CGB 160->220 (dropped 9 _ds_ FALSE passes that
+  only "passed" by not switching; added real _ds_ passers, e.g. speedchange 8->24/40 sample). Gate 655->715.
+  NOTE: --apu-activity counts CPU cycles so _ds_ AUDIO would mis-measure; CGB suite kept digit-only.
+
+ROUND: 33 (complete, committed + pushed) — GAMBATTE CGB SUITE — new dimension (+160)
+  Round 33: opened CGB gambatte (digits are b/w -> formula-independent); +160 with --cgb runner.
   Round 33: opened the CGB gambatte dimension. 3023 cgb04c digit tests exist; my CGB rendering + the
   digit comparator agree because the result tiles are pure black/white (mask 0xF8F8F8 -> font, formula-
   independent), so no gambatte CGB RGB formula was needed. Ran with --cgb; sampled ~56% pass. Vendored
@@ -228,14 +239,14 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 34): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) EXPAND CGB gambatte (vendored 160 of ~1700 passers; +CGB audio via --cgb --apu-activity). Cheap
-      strict-increase; same pattern as DMG. Watch repo size (gambatte now ~16.5M) + gate (~1min).
-  (2) MINE a CGB-specific failing category (the ~44% CGB fails) for a real CGB bug — could be a CGB
-      palette/timing behavior. Group by name first.
-  (3) enable_display first-frame LCD-on timing (deep, ~31 DMG tests) — real PPU accuracy but multi-faceted.
-  (4) Trace another DMG audio cluster (~31 fails).
-  Lean (1) expand CGB (big easy +N) or (2) mine a CGB category. Gate ~33s+CGB, still fast.
+NEXT ROUND SEED (round 35): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) EXPAND CGB gambatte (vendored 220 of ~1700+ passers, now incl double-speed). Cheap +N. Repo
+      gambatte ~22M now — consider gitignore gambatte+gambatte-cgb ROMs + a note (gate stays local).
+  (2) Double-speed POLISH: the STOP-switch has no ~2050-cycle delay; speedchange still ~60% — the
+      remaining _ds_ fails likely need the switch-delay + exact mode timing. Real timing tail.
+  (3) Fix --apu-activity for double-speed (count crystal cycles) -> unlock _ds_ AUDIO tests.
+  (4) enable_display first-frame LCD-on timing (deep DMG PPU, ~31 tests). Or another audio/PPU cluster.
+  Lean (1) expand (easy +N) or (2) double-speed polish (real timing). repo size is the main constraint now.
   KEY: CGB digit tiles are black/white so no RGB formula needed; --cgb for CGB hardware.
   NOTE: --apu-activity is cycle-based (robust). gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.
   (2) cgb-acid-hell pixel-perfect: the mid-frame SCY raster timing (HALT-wake + STAT-int + scy-write

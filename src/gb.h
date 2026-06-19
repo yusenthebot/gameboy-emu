@@ -100,6 +100,7 @@ typedef struct GB {
     bool halt_bug;          /* next fetch does not advance PC */
     bool stopped;
     bool locked;            /* undefined opcode hung the CPU (only the clock runs) */
+    bool double_speed;      /* CGB KEY1 double-speed: CPU 2x vs PPU/APU (crystal) */
 
     /* Memory regions */
     u8 vram[0x4000];        /* 2 banks (CGB); DMG uses bank 0 only */
