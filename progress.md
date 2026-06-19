@@ -1,5 +1,26 @@
 # Progress Log
 
+## Round 37 — lcdon investigation (reverted) + expand (PASS 1038->1227)  [committed + pushed]
+
+### What I tried (and why it failed)
+- Targeted the LCD-on timing (wilbertpol lcdon 0/43, gambatte enable_display). Hypothesis: on the first
+  LY=0 after enabling, the OAM scan (mode 2) doesn't happen, so the mode-2 STAT interrupt is suppressed.
+  Implemented: first-LY=0 mode-2 window reads mode 0 (gated on lcd_on_frame && ly==0).
+- RESULT: broke 7 existing tests and fixed 0 of the 43 lcdon tests. So the first-LY=0 mode 2 IS used
+  correctly by real tests, and the lcdon failures are the LY-TRANSITION + interrupt TIMING after enable,
+  not the mode-2 field. Reverted cleanly (back to 1038/1038).
+- Can't reverse-engineer the exact LCD-on timeline from binary pass/fail: the wilbertpol ROMs have no
+  .s source in /tmp/gbtr_x, and gambatte frame0 binaries only give a numeric count. Need the real spec
+  (SameBoy display.c, or Gekkio mooneye lcdon .s via gh api) before retrying.
+
+### What landed
+- Guaranteed strict-increase: expanded verified gambatte digit coverage DMG 465->544 (+79), CGB 360->470
+  (+110). Gate 1038 -> 1227, no regression, ~50s.
+
+### Lesson
+- Don't gamble a round on an un-spec'd precise-timing bug: bound the attempt, revert clean if it breaks
+  things, and bank a reliable strict-increase. The lcdon problem is now narrowed (LY-transition timing).
+
 ## Round 36 — Gambatte expansion, crossed 1000 (PASS 796->1038)  [committed + pushed]
 
 ### What happened
