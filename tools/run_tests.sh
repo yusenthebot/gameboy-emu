@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/cgb-acid2/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -48,6 +48,12 @@ total=$((total+1))
 if python3 tools/cgbcmp.py roms/cgb-acid2/cgb-acid2-ref.png /tmp/gbemu_cgb.rgb >/dev/null 2>&1; then
     pass=$((pass+1)); row "cgb-acid2 (color image)" "PASS"
 else fail=$((fail+1)); row "cgb-acid2 (color image)" "FAIL"; fi
+
+# --- CGB boot register state: boot_regs-cgb run as CGB hardware (--cgb) ---
+total=$((total+1))
+if "$BIN" roms/cgb/boot_regs-cgb.gb --cgb --mooneye --cycles 20000000 2>&1 | grep -q "RESULT: PASS"; then
+    pass=$((pass+1)); row "boot_regs-cgb (CGB boot state)" "PASS"
+else fail=$((fail+1)); row "boot_regs-cgb (CGB boot state)" "FAIL"; fi
 
 # --- MBC3/MBC30 banking: mbc3-tester pixel-diffed vs reference (needs the 4MB ROM; gitignored) ---
 if [ -f roms/mbc3-tester/mbc3-tester.gb ]; then

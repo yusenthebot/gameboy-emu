@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0;
+    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0;
     const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--rewind-selftest")) rewind_test = 1;
         else if (!strcmp(argv[i], "--sav-selftest")) sav_selftest = 1;
         else if (!strcmp(argv[i], "--sav") && i + 1 < argc) sav_path = argv[++i];
+        else if (!strcmp(argv[i], "--cgb")) force_cgb = 1;   /* run as CGB hardware */
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
@@ -66,6 +67,7 @@ int main(int argc, char **argv) {
 
     memset(&gb, 0, sizeof(gb));
     if (cart_load(&gb, path) != 0) return 2;
+    if (force_cgb) gb.cgb = true;        /* CGB hardware runs any cart in CGB mode */
     cpu_init_postboot(&gb);
     if (load_state) {
         if (gb_load_state(&gb, load_state) != 0) {

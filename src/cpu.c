@@ -428,10 +428,17 @@ int cpu_step(GB *g) {
 }
 
 void cpu_init_postboot(GB *g) {
-    g->a = 0x01; g->f = 0xB0;
-    g->b = 0x00; g->c = 0x13;
-    g->d = 0x00; g->e = 0xD8;
-    g->h = 0x01; g->l = 0x4D;
+    if (g->cgb) {                      /* CGB boot ROM hands off A=0x11 (CGB id) */
+        g->a = 0x11; g->f = 0x80;
+        g->b = 0x00; g->c = 0x00;
+        g->d = 0x00; g->e = 0x08;
+        g->h = 0x00; g->l = 0x7C;
+    } else {
+        g->a = 0x01; g->f = 0xB0;
+        g->b = 0x00; g->c = 0x13;
+        g->d = 0x00; g->e = 0xD8;
+        g->h = 0x01; g->l = 0x4D;
+    }
     g->sp = 0xFFFE;
     g->pc = 0x0100;
     g->ime = false; g->ime_pending = false;

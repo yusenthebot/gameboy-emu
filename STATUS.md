@@ -4,9 +4,17 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 26 (complete, committed + pushed) — CGB BOOT STATE + --cgb hardware flag (+1)
+SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
+PASS COUNT: 130/130  (15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3-tester + .sav + 3 ss + audio + front + dbg + rewind + 92)
+  Round 26: CGB post-boot state (g->cgb ? A=0x11 F=0x80 BC=0 DE=0x0008 HL=0x007C : DMG). A=0x11 is
+  the CGB id games check -> cgb-acid-hell went 22865->2 mismatches (it now boots+renders). --cgb
+  flag forces CGB hardware mode (for 0x00 carts that test CGB, e.g. boot_regs-cgb). +boot_regs-cgb
+  (used the new disassembler to read its expected regs). cgb-acid2 still 0/23040, DMG untouched.
+  NOTE: cgb-acid-hell's last 2px = mid-frame SCY raster timing (scy write applies 1 line late) — timing tail.
+
 ROUND: 25 (complete, committed + pushed) — MBC3/MBC30 + RTC + BATTERY SAVES (+2)
-SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+battery-sav)
-PASS COUNT: 129/129  (15 serial + 2 acid2 + 9 fh + 2 game + mbc3-tester + .sav + 3 ss + audio + front + dbg + rewind + 92)
+  Round 25: MBC3 (8-bit MBC30 for big carts), RTC, cart_save/load_battery; mbc3-tester 0/23040 + .sav.
   Round 25: MBC3 banking (cart 0x0F-0x13 -> mbc=3): 7-bit ROM bank (8-bit/MBC30 for >128-bank carts
   like the 4MB mbc3-tester), RAM bank (0-3) / RTC register select (8-C), RTC[5] regs + latch. Battery
   .sav: cart_save/load_battery (cart RAM + RTC); gbplay auto-loads/saves <rom>.sav for battery carts.
@@ -154,15 +162,14 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 26): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+NEXT ROUND SEED (round 27): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
   (1) CGB depth: WRAM banking (SVBK FF70) + double-speed (KEY1) + HDMA (FF51-55 general+HBlank) ->
-      unlocks CGB mooneye/same-suite tests + lets real CGB games run correctly. cgb-acid-hell (sprite
-      priority torture, ROM in /tmp/gbtr_x) is a gate-verifiable image test.
-  (2) Mealybug-tearoom tests (mid-scanline PPU writes — the real T-cycle PPU torture; /tmp/gbtr_x/
-      mealybug-tearoom-tests, has reference PNGs) — hard, would need a per-dot PPU but high prestige.
-  (3) Push the timing tail with the debugger now available to read Blargg binaries (sweep/wave).
-  (4) rtc3test (RTC accuracy — needs a ticking clock + the 3 modes; complex/interactive).
-  Lean (1) CGB depth (double-speed/HDMA unlock real CGB games + CGB test suites; gate-verifiable).
+      unlocks CGB mooneye/same-suite + lets real CGB games run. Each gate-verifiable.
+  (2) cgb-acid-hell pixel-perfect: fix the mid-frame SCY raster timing (scy write applies 1 line
+      late). 2px from passing — would need precise scy-write-to-scanline timing (the timing tail).
+  (3) CGB compat palette for 0x80 DMG games (so they run in color on CGB) + boot_hwio-C (CGB HWIO).
+  (4) Mealybug-tearoom (mid-scanline PPU torture — needs a per-dot PPU; high prestige, hard).
+  Lean (1) CGB depth (WRAM/double-speed/HDMA = real CGB game support + more CGB tests).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

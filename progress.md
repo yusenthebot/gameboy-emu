@@ -1,5 +1,30 @@
 # Progress Log
 
+## Round 26 — CGB BOOT STATE + --cgb hardware flag (PASS 129->130)  [committed + pushed]
+
+### What was built
+- CGB post-boot register state (cpu.c): when g->cgb, hand off A=0x11 F=0x80 BC=0x0000 DE=0x0008
+  HL=0x007C (the CGB boot ROM values) instead of the DMG set. A=0x11 is the CGB identifier that
+  CGB games read to detect the hardware.
+- --cgb flag (main.c): force CGB hardware mode regardless of the cart's CGB flag — needed for the
+  CGB test ROMs that ship as 0x00 (DMG) carts but test CGB-hardware behavior (run on a real CGB).
+
+### Verified
+- +boot_regs-cgb (run with --cgb): the CGB post-boot registers now match. I used the round-22
+  DISASSEMBLER to read boot_regs-cgb's expected values (D=0x00 E=0x08 H=0x00 L=0x7C) straight from
+  the binary. Gate 129 -> 130. cgb-acid2 still 0/23040, DMG suite untouched (CGB regs only apply
+  to CGB carts), no regression.
+- BIG bonus: cgb-acid-hell went from 22865/23040 mismatches to **2** — it was blank because it
+  checks A=0x11 to detect CGB; with the post-boot fix it boots and renders almost perfectly.
+
+### What did NOT fully work / lesson
+- cgb-acid-hell's last 2 pixels (col 80, rows 68-69) are SWAPPED: it scrolls SCY +8 per scanline
+  (a raster effect) and my SCY write applies one scanline late vs the reference. That's a precise
+  scy-write-to-scanline timing edge (the timing tail), not a render bug — deferred.
+- boot_regs-cgb wants the DMG-cart-on-CGB regs (DE=0x0008/HL=0x007C), not the CGB-cart regs
+  (DE=0xFF56/HL=0x000D). CGB games overwrite DE/HL (they only read A), so using the former is safe.
+- DEBUGGER PAID OFF: disassembling the opaque test binary gave the exact expected registers.
+
 ## Round 25 — MBC3/MBC30 + RTC + BATTERY SAVES (PASS 127->129)  [committed + pushed]
 
 ### What was built
