@@ -4,18 +4,20 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 44 (complete, committed + pushed) — frontier mapping (CPU tick model) + expand (+100)
+ROUND: 45 (complete, committed + pushed) — MILESTONE REVIEW @ 2000 (adversarial verify) + expand (+85)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1942/1942  (688 gambatte-DMG + 1121 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 44: (a) WINDOW-penalty unlock is empty — only 1 non-vendored window DMG test exists and it's
-  m2int (sub-cycle). (b) Surveyed remaining gambatte fails (266 DMG sample): dominated by sub-cycle
-  timing (m2int/m3stat/lcdon/oamdma/lyc/enable STAT+IRQ); no resolvable M-cycle cluster left.
-  (c) KEY: the CPU is ALREADY per-M-cycle tick-before-access (cpu.c rd = tick(4)+bus_read; PPU advances
-  4 dots per access). So the sub-cycle tail is NOT a missing feature — it needs each access to land at a
-  sub-M-cycle T, i.e. a COHERENT T-cycle re-calibration (shift access timing + re-derive STAT_MODE_DELAY/
-  mode3_end together). Round 38's piecemeal lcdon (lcd_on_delay=2 -> broke 21) proves piecemeal fails.
-  => The remaining frontier is one delicate re-calibration; risky to rush autonomously on a 1942 gate.
-  +CGB expansion 1021->1121. Gate 1842 -> 1942 (approaching 2000).
+PASS COUNT: 2027/2027  (688 gambatte-DMG + 1206 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 45: crossed 2000. REVIEW round — adversarially verified the headline features in REAL runs (not
+  just gated hashes): libbet renders correctly (visual: intro screen + menu) and PROGRESSES (frame 60 !=
+  frame 600 hash, not frozen); save-states FAITHFUL (load@300 then ->600 byte-identical to a continuous
+  ->600 run; the first "mismatch" was my check using --frames as relative when it's ABSOLUTE, not a bug);
+  rewind selftest PASS; .sav works in-gate (libbet "no cart RAM" is expected, no battery). Codebase clean:
+  3179 LOC, largest file cpu.c 475, no TODO/dead code, no orphan .o. Ambition critic: the only thing an
+  expert would find missing is the deep sub-cycle tail (the T-cycle re-calibration frontier, mapped R44).
+  +CGB expansion 1121->1206. Gate 1942 -> 2027.
+
+ROUND: 44 (complete, committed + pushed) — frontier mapping (CPU tick model) + expand (+100)
+  Round 44: CPU is already per-M-cycle tick-before-access; sub-cycle tail = coherent T-cycle re-calib. +CGB.
 
 ROUND: 43 (complete, committed + pushed) — FIFO integration ANALYSIS (no-op finding) + expand (+90)
   Round 43: FIFO timing-integrate is a no-op (matches calibrated scanline); sub-cycle needs per-T CPU. +CGB.
@@ -322,17 +324,16 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 45): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) MILESTONE REVIEW round (cross 2000): expand to push past 2000, THEN a review — adversarially
-      verify a few claimed features in a real run (debugger, save-states, rewind, a real game frame),
-      delete any dead code/docs, refresh progress.md to reality, short milestone summary.
-  (2) T-cycle re-calibration SPIKE (the genuine frontier, careful): build a SEPARATE validated path —
-      pick ONE sub-cycle test (e.g. a single m3stat or lcdon), model the access at its true T inside a
-      gated/parallel routine, prove it passes that test WITHOUT touching the default CPU. Only migrate
-      once the new path passes strictly MORE than the current. Never break the 1942 gate at a boundary.
-  (3) EXPAND (CGB headroom ~600). Lean (1) the 2000 milestone review + expand. Frontier = (2), done carefully.
-  KEY: CPU is per-M-cycle tick-before-access (cpu.c rd=tick(4)+bus_read); sub-cycle = coherent T re-calib;
-  mode3_end=172+scx&7+obj_mode3_penalty; STAT_MODE_DELAY=8; round38 piecemeal lcdon broke 21 (don't repeat).
+NEXT ROUND SEED (round 46): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) T-cycle re-calibration SPIKE (the genuine frontier — actually ATTEMPT it now, carefully). Plan:
+      pick ONE clean sub-cycle test (start with a single m3stat, NOT lcdon which R38 burned). Build a
+      separate harness that re-derives the access T + the matching STAT_MODE_DELAY/mode3_end so BOTH the
+      existing few + the new one pass. Prove on a tiny set OFF the default path first. Migrate only when
+      it passes strictly MORE. If it proves intractable after real effort -> document = diminishing returns.
+  (2) EXPAND (CGB headroom ~500) — the guaranteed strict-increase regardless of (1)'s outcome.
+  Lean: DO (1) the spike as real frontier pushing + (2) as the strict-increase backstop. The review (R45)
+  confirmed the emulator is excellent + verified-real; the tail is the only frontier left.
+  KEY: cpu.c rd=tick(4)+bus_read; mode3_end=172+scx&7+obj_mode3_penalty; STAT_MODE_DELAY=8; no piecemeal.
   KEY: FIFO complete+validated; mode3_end=172+scx&7+obj_mode3_penalty; FIFO base 171, penalty=obj_pen+3.
   KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.

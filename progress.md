@@ -1,5 +1,32 @@
 # Progress Log
 
+## Round 45 — MILESTONE REVIEW @ 2000 (adversarial verify) + expand (PASS 1942->2027)  [committed + pushed]
+
+### Crossed 2000. Adversarially verified the headline features in REAL runs (not just gated hashes)
+- Real game: libbet (the only bundled game) RENDERS CORRECTLY — visually confirmed the intro screen,
+  text, and Select/Start menu (Read the dumped PNG), and it PROGRESSES (frame-60 hash != frame-600 hash,
+  so it's running, not frozen on a title).
+- Save-states: FAITHFUL. load(state@frame300) then run ->600 is byte-identical to a continuous ->600 run.
+  (My first check wrongly used --frames as relative additional frames; it's ABSOLUTE [while frame_count<N],
+  so load@300 + "--frames 300" ran 0 frames. Re-tested with absolute 600 -> MATCH. Not a bug.)
+- Rewind selftest PASS. .sav works in-gate (libbet's "no cart RAM" FAIL is expected — it has no battery).
+- Codebase health: 3179 LOC across src, largest cpu.c=475, no TODO/FIXME/dead-code, no orphan .o.
+
+### Ambition critic (what would an expert still find missing?)
+- Only the deep sub-cycle timing tail (lcdon 2T, m2int STAT precedence, _ds_ audio). Everything else
+  (full instr+timing, scanline+FIFO PPU, acid2, MBC+save, APU, CGB+double-speed, debugger/save-states/
+  rewind) is present and verified. The tail = the T-cycle re-calibration mapped in round 44.
+
+### What landed
+- CGB expansion 1121 -> 1206. Gate 1942 -> 2027 (crossed 2000).
+
+### Frontier ladder (## Frontier)
+- The emulator is excellent AND verified-real (this round's adversarial pass). 2027 tests green.
+- THE one remaining frontier: the coherent T-cycle re-calibration (round 44) for the sub-cycle tail.
+  Round 46 ATTEMPTS it carefully as a spike on a separate path (start with m3stat, not lcdon). If it
+  proves intractable after real effort, that documents genuine diminishing returns on the frontier.
+- Reliable backstop: expansion (CGB ~500 headroom) keeps the count strictly rising regardless.
+
 ## Round 44 — frontier mapping (the CPU is already per-M-cycle) + expand (PASS 1842->1942)  [committed + pushed]
 
 ### What I checked
