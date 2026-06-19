@@ -1,5 +1,40 @@
 # Progress Log
 
+## Round 48 — FIFO per-dot render: mealybug is sub-cycle too (built, reverted) + expand (PASS 2187->2267)  [committed + pushed]
+
+### Built the per-dot FIFO renderer integration (gate-safe, but reverted)
+- gb.h: a per-line `m3_snaps[]` timeline (mode-3 start + each mid-mode-3 rendering-register write at its
+  reldot). ppu_write records changes during mode 3; ppu_tick seeds snaps[0]; render_scanline (DMG) routes
+  to fifo_bg_line when >1 snap, which now reads lcdc/scx/scy/bgp/obp/wx/wy per-dot from the timeline
+  (BG-disable + live OBP-select handled). Refactor validated: --fifo-selftest still pixel-identical (static).
+- KEY safety: gated on changes-occurred, so STATIC lines (the whole gate) kept the scanline path -> the
+  full gate stayed 2187 green WITH the integration in. The per-dot mechanism demonstrably worked (it
+  rendered structured mid-line band effects).
+
+### The finding (corrects round 47's optimism)
+- mealybug exact tests STILL fail: ~19% pixel mismatch, and my output diverges from the reference starting
+  at pixel 2 -- the mid-line writes start immediately and land at the wrong dot. Reaching the reference
+  needs (a) the register write to land at the EXACT dot (sub-cycle, M-cycle CPU can't) and (b) the FIFO to
+  match the hardware pipeline to the dot. An M3_DOT_OFFSET delay didn't fix it (not a clean shift).
+- So mealybug is sub-cycle-gated TOO. The per-dot FIFO is necessary but NOT sufficient. Also: most DMG
+  mealybug references are revision "blobs" (not pixel-exact verifiable); only 2 DMG are exact, plus the
+  CGB set -- all of which need the same sub-cycle precision.
+- This is the 4TH independent confirmation of the sub-cycle ceiling (lcdon R38, CPU-is-per-M-cycle R44,
+  STAT-write-bug R46, mealybug-render R48). Everything left -- timing AND rendering -- is below M-cycle.
+
+### What did NOT work
+- The per-dot FIFO render for mealybug (gate-safe but 0 verified new tests -> reverted to keep it clean).
+
+### What landed
+- Kept tools/mealybug_check.py. Reverted src/ to the clean 2187. CGB expansion 1366->1446. Gate 2187->2267.
+
+### Frontier ladder (## Frontier)
+- The sub-cycle frontier (timing + rendering) is comprehensively confirmed gated behind ONE thing: a
+  from-scratch T-cycle re-calibration (CPU access timing per-T + PPU constants re-derived together), on a
+  separate parallel path, migrate only when it passes strictly more. Major multi-round rewrite, high-risk.
+- Reliable: expansion (CGB ~200 headroom) keeps the count strictly rising. Other untapped suites
+  (age-test-roms, little-things-gb, rtc3test) may have M-cycle-resolvable passers but need harnesses.
+
 ## Round 47 — NEW FRONTIER: mealybug per-dot rendering (FIFO resurrected) + expand (PASS 2107->2187)  [committed + pushed]
 
 ### Tapped the untapped suites in /tmp/gbtr_x (I'd only been mining gambatte)
