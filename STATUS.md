@@ -4,6 +4,15 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 19 (research, gate FLAT) — sweep + hblank both source/full-chain dead-ends
+  Round 19: tried dmg_sound sweep 04/05/07 — failing subtests are 04#8 (shift=0/period>0
+  trigger-enables), 05#2 (timer treats period 0 as 8); my sweep logic matches the Pan Docs
+  spec (got via gh api) but the exact subtests need Blargg's source (binaries, no .s). SameSuite
+  ch1 = 0/21 (needs sample-accurate pulse output — even channel_1_duty fails; not tractable).
+  hblank_ly_scx: measures mode-0 IRQ -> LY, but that's the full chain (PPU IRQ + CPU HALT-wake +
+  dispatch all cycle-perfect), not a single PPU knob. 2nd consecutive flat round -> re-surfaced
+  to owner (frontend vs keep-grinding-timing-tail). No code change (exploration only).
+
 ROUND: 18 (complete, committed local) — APU wave-channel research (gate FLAT, honest)
 SUBSTRATE: C11 + clang
 PASS COUNT: 119/119  (gate FLAT — no clean +1 landed; researched two hard frontiers)
