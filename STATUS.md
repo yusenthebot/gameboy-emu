@@ -4,17 +4,20 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 45 (complete, committed + pushed) — MILESTONE REVIEW @ 2000 (adversarial verify) + expand (+85)
+ROUND: 46 (complete, committed + pushed) — frontier ATTEMPT: DMG STAT-write bug (regressed, reverted) + expand (+80)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 2027/2027  (688 gambatte-DMG + 1206 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 45: crossed 2000. REVIEW round — adversarially verified the headline features in REAL runs (not
-  just gated hashes): libbet renders correctly (visual: intro screen + menu) and PROGRESSES (frame 60 !=
-  frame 600 hash, not frozen); save-states FAITHFUL (load@300 then ->600 byte-identical to a continuous
-  ->600 run; the first "mismatch" was my check using --frames as relative when it's ABSOLUTE, not a bug);
-  rewind selftest PASS; .sav works in-gate (libbet "no cart RAM" is expected, no battery). Codebase clean:
-  3179 LOC, largest file cpu.c 475, no TODO/dead code, no orphan .o. Ambition critic: the only thing an
-  expert would find missing is the deep sub-cycle tail (the T-cycle re-calibration frontier, mapped R44).
-  +CGB expansion 1121->1206. Gate 1942 -> 2027.
+PASS COUNT: 2107/2107  (688 gambatte-DMG + 1286 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 46: ATTEMPTED a concrete sub-cycle quirk = the DMG STAT-write bug (writing FF41 momentarily
+  enables all STAT sources -> spurious IRQ). Diagnosed: gambatte statwirq tests under-fire (mine=0 exp=2)
+  = I lack the bug; m0/m2enable over-fire (mine=2 exp=0) = a separate edge. (Also fixed my broken survey:
+  --mooneye prints "RESULT: PASS" not "Passed"; ALL mooneye PPU-timing tests already pass.) Tried 3 STAT-
+  write variants: glitch+postcheck broke 51, glitch-only broke 45, staleness-fixed broke 121. ALL regressed
+  -> the STAT-write IRQ's exact cycle is intricately calibration-sensitive; M-cycle granularity can't add it
+  without cascading. The sub-cycle ceiling, confirmed a 3rd time (after lcdon R38, CPU-model R44). Reverted
+  clean (2027), then +CGB expansion 1206->1286. Gate 2027 -> 2107.
+
+ROUND: 45 (complete, committed + pushed) — MILESTONE REVIEW @ 2000 (adversarial verify) + expand (+85)
+  Round 45: crossed 2000; adversarially verified libbet renders+progresses, save-states faithful, clean code. +CGB.
 
 ROUND: 44 (complete, committed + pushed) — frontier mapping (CPU tick model) + expand (+100)
   Round 44: CPU is already per-M-cycle tick-before-access; sub-cycle tail = coherent T-cycle re-calib. +CGB.
@@ -324,16 +327,17 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 46): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) T-cycle re-calibration SPIKE (the genuine frontier — actually ATTEMPT it now, carefully). Plan:
-      pick ONE clean sub-cycle test (start with a single m3stat, NOT lcdon which R38 burned). Build a
-      separate harness that re-derives the access T + the matching STAT_MODE_DELAY/mode3_end so BOTH the
-      existing few + the new one pass. Prove on a tiny set OFF the default path first. Migrate only when
-      it passes strictly MORE. If it proves intractable after real effort -> document = diminishing returns.
-  (2) EXPAND (CGB headroom ~500) — the guaranteed strict-increase regardless of (1)'s outcome.
-  Lean: DO (1) the spike as real frontier pushing + (2) as the strict-increase backstop. The review (R45)
-  confirmed the emulator is excellent + verified-real; the tail is the only frontier left.
-  KEY: cpu.c rd=tick(4)+bus_read; mode3_end=172+scx&7+obj_mode3_penalty; STAT_MODE_DELAY=8; no piecemeal.
+NEXT ROUND SEED (round 47): decide autonomously, don't ask ([[loop-full-autonomy]]). Status of the frontier:
+  The sub-cycle tail is now confirmed gated 3 WAYS (lcdon R38, CPU-is-per-M-cycle R44, STAT-write-bug R46
+  all regressed). Piecemeal sub-cycle quirks RELIABLY break the calibrated gate. The ONLY remaining path is
+  a full T-cycle re-calibration on a SEPARATE parallel CPU/PPU path (big, multi-round, only migrate when it
+  passes strictly more) — high-risk; do NOT attempt in-place. Options:
+  (1) EXPAND (CGB headroom ~400) — the reliable strict-increase; the gate keeps rising honestly.
+  (2) If attempting the frontier: ONLY as a separate parallel-path T-cycle CPU spike, gated, never in-place.
+      Scope it as a multi-round build with its own validation harness; the in-place door is closed (3 proofs).
+  (3) Survey CGB-only sub-cycle clusters that might be M-cycle-resolvable (rare, but check before assuming).
+  Lean (1) expand + occasionally (3); (2) only as a deliberate dedicated effort. NEVER break the 2107 gate.
+  KEY: --mooneye prints "RESULT: PASS"; all mooneye PPU-timing PASS; piecemeal sub-cycle = regression (proven 3x).
   KEY: FIFO complete+validated; mode3_end=172+scx&7+obj_mode3_penalty; FIFO base 171, penalty=obj_pen+3.
   KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.

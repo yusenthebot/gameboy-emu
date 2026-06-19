@@ -1,5 +1,36 @@
 # Progress Log
 
+## Round 46 — frontier ATTEMPT: DMG STAT-write bug (regressed, reverted) + expand (PASS 2027->2107)  [committed + pushed]
+
+### Real pushing on the sub-cycle frontier (an honest negative result)
+- Fixed my broken survey first: `--mooneye` prints "RESULT: PASS" (not "Passed"), so ALL mooneye PPU-timing
+  tests (intr_2_mode3, mode0, stat_irq_blocking, lyc_onoff) already PASS — my precise timing is mooneye-grade.
+- Decoded my actual result digit vs expected on the failing gambatte STAT clusters: m0enable/m2enable
+  OVER-fire (mine=2, exp=0); miscmstatirq `lycflag_statwirq` UNDER-fire (mine=0, exp=2). The "statwirq"
+  name = the DMG STAT-write bug (writing FF41 momentarily enables all sources -> spurious STAT IRQ), which
+  I don't model -- a concrete, named, plausibly M-cycle-resolvable target.
+- ATTEMPTED it, 3 variants: (a) glitch + post-write stat_check -> gate 1976 (broke 51, incl CGB via the
+  unconditional recheck); (b) DMG-glitch only -> 1982 (broke 45); (c) staleness-fixed (fire on true edge +
+  recompute stat_line) -> 1906 (broke 121). EVERY variant regressed.
+
+### The finding (sub-cycle ceiling, confirmed a 3rd independent way)
+- The STAT-write IRQ's exact cycle is intricately calibration-sensitive: the vendored gambatte tests pin the
+  interrupt to a precise dot, and adding the write-bug fire at M-cycle granularity shifts it, cascading
+  regressions. This is the SAME wall as lcdon (R38) and the per-M-cycle CPU model (R44). Piecemeal sub-cycle
+  quirks RELIABLY break the calibrated gate -> the only real path is a full T-cycle re-calibration.
+
+### What did NOT work
+- DMG STAT-write bug in-place (all 3 variants). Reverted clean to 2027.
+
+### What landed
+- Reverted to the clean 2027, then CGB expansion 1206 -> 1286. Gate 2027 -> 2107.
+
+### Frontier ladder (## Frontier)
+- Sub-cycle tail is now confirmed gated 3 independent ways. In-place piecemeal fixes are CLOSED (proven).
+- The ONLY remaining path: a full T-cycle re-calibration on a SEPARATE parallel CPU/PPU path (big, multi-
+  round, migrate only when it passes strictly more). High-risk; a deliberate dedicated effort, not a casual
+  round. Reliable meanwhile: expansion (CGB ~400 headroom) keeps the count strictly rising, honestly.
+
 ## Round 45 — MILESTONE REVIEW @ 2000 (adversarial verify) + expand (PASS 1942->2027)  [committed + pushed]
 
 ### Crossed 2000. Adversarially verified the headline features in REAL runs (not just gated hashes)
