@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-123%2F123%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-124%2F124%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -32,7 +32,7 @@ sub-instruction timing tests.
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **123/123 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **124/124 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -153,7 +153,7 @@ make                                  # builds ./gbemu (headless)
 ./gbemu game.gb --frames 200 --load-state s.gss --png out.png
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 123/123
+./tools/run_tests.sh                  # -> PASS: 124/124
 ```
 
 ### Play it (interactive SDL2 frontend)
@@ -165,6 +165,8 @@ make play                             # builds ./gbplay (needs SDL2)
 
 Controls: **arrows** = D-pad, **Z** = A, **X** = B, **Enter** = Start,
 **Shift** = Select, **F5** = quick-save state, **F9** = load, **Esc** = quit.
+
+Audio plays through SDL (square, wave and noise channels mixed with NR50/NR51 panning).
 
 ## How tests are verified (no "looks right")
 

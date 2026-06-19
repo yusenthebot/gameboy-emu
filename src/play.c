@@ -55,10 +55,16 @@ int main(int argc, char **argv) {
     if (cart_load(&gb, path) != 0) return 2;
     cpu_init_postboot(&gb);
 
-    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
+    /* Audio: push synthesized APU samples each frame (best-effort). */
+    SDL_AudioSpec want = {0};
+    want.freq = APU_SAMPLE_RATE; want.format = AUDIO_S16SYS; want.channels = 2; want.samples = 1024;
+    SDL_AudioDeviceID adev = SDL_OpenAudioDevice(NULL, 0, &want, NULL, 0);
+    if (adev) SDL_PauseAudioDevice(adev, 0);
+    else fprintf(stderr, "[no audio: %s]\n", SDL_GetError());
     SDL_Window *win = SDL_CreateWindow(gb.cart.title[0] ? gb.cart.title : "gbemu",
                                        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        LCD_W * scale, LCD_H * scale, SDL_WINDOW_SHOWN);
@@ -102,6 +108,14 @@ int main(int argc, char **argv) {
         while (gb.frame_count == f) cpu_step(&gb);
         rendered++;
 
+        /* push this frame's audio, dropping if the queue is backing up (>~0.2s) */
+        if (adev) {
+            i16 sbuf[2048];
+            int n = apu_drain_samples(&gb, sbuf, 1024);
+            if (n && SDL_GetQueuedAudioSize(adev) < APU_SAMPLE_RATE * 2 * sizeof(i16) / 5)
+                SDL_QueueAudio(adev, sbuf, (Uint32)n * 2 * sizeof(i16));
+        }
+
         if (tex) {
             for (int i = 0; i < LCD_W * LCD_H; i++) pix[i] = PALETTE[gb.fb[i] & 3];
             SDL_UpdateTexture(tex, NULL, pix, LCD_W * sizeof(u32));
@@ -123,6 +137,7 @@ int main(int argc, char **argv) {
     }
 
     free(pix);
+    if (adev) SDL_CloseAudioDevice(adev);
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);

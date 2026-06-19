@@ -77,6 +77,15 @@ typedef struct Apu {
 
     u8   reg[0x17];         /* NR10..NR52 raw = FF10..FF26 */
     u8   wave[16];          /* FF30..FF3F */
+
+    /* channel output synthesis (audible sample generation) */
+    int  sq_timer[2];       /* ch1/ch2 square frequency timer (T-cycles) */
+    u8   sq_step[2];        /* duty step 0..7 */
+    int  wv_timer;          /* ch3 wave frequency timer */
+    u8   wv_pos;            /* wave sample index 0..31 */
+    int  ns_timer;          /* ch4 noise frequency timer */
+    u16  lfsr;              /* ch4 15-bit LFSR */
+    int  sample_acc;        /* T-cycle accumulator for the output sample rate */
 } Apu;
 
 typedef struct GB {
@@ -182,6 +191,8 @@ void apu_init(GB *gb);
 void apu_tick(GB *gb, int tcycles);
 u8   apu_read(GB *gb, u16 addr);
 void apu_write(GB *gb, u16 addr, u8 val);
+int  apu_drain_samples(GB *gb, i16 *out, int max_pairs);  /* returns stereo pairs drained */
+#define APU_SAMPLE_RATE 48000
 
 /* state.c */
 int gb_save_state(GB *gb, const char *path);

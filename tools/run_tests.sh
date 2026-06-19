@@ -104,6 +104,22 @@ for spec in "${SAVESTATE[@]}"; do
     else fail=$((fail+1)); row "$name" "FAIL (nondeterministic)"; fi
 done
 
+# --- APU audio synthesis: a fixed run must produce deterministic, non-silent PCM.
+#     (verified once to be audible; this guards the synth against regression) ---
+AUDIO=(
+  "roms/games/libbet/libbet.gb|600|2c52f2ffe83bdb1df9d61d6c6bdd16d74fa88ff6b90d0a02a71643c233ba38e5"
+)
+for spec in "${AUDIO[@]}"; do
+    IFS='|' read -r rom fr want <<< "$spec"
+    total=$((total+1)); name="${rom#roms/} audio@${fr}f"
+    if [ ! -f "$rom" ]; then fail=$((fail+1)); row "$name" "MISSING"; continue; fi
+    tmp="/tmp/gbemu_audio_$(basename "$rom").pcm"
+    "$BIN" "$rom" --frames "$fr" --audio-raw "$tmp" --cycles 120000000 >/dev/null 2>&1
+    got=$(shasum -a 256 "$tmp" | cut -d' ' -f1)
+    if [ "$got" = "$want" ]; then pass=$((pass+1)); row "$name" "PASS"
+    else fail=$((fail+1)); row "$name" "FAIL ($got)"; fi
+done
+
 # --- interactive frontend: gbplay (SDL2) must drive the engine to identical frames.
 #     Runs headless under the dummy video driver. Skipped if SDL2 is unavailable. ---
 if make play >/dev/null 2>&1; then

@@ -1,5 +1,30 @@
 # Progress Log
 
+## Round 21 — APU AUDIO SYNTHESIS (PASS 123->124, sound!)  [committed + pushed]
+
+### What was built
+- apu.c synth_tick(): per-channel audible output generation, on top of the existing register/
+  length/envelope/sweep model. Square ch1/ch2 (duty pattern + (2048-freq)*4 timer), wave ch3
+  ((2048-freq)*2 timer + 32-step sample index + NR32 volume shift), noise ch4 (15-bit LFSR with
+  NR43 divisor<<shift timer, width mode). Each channel emits a BIPOLAR level so the mix is DC-free.
+- Mix: NR51 panning (L bits 4-7 / R bits 0-3) + NR50 master volume (1..8) -> stereo, resampled to
+  48kHz via an exact integer accumulator (t*RATE >= CPU_HZ) into a module-static ring buffer.
+  apu_drain_samples() pulls pairs. Channel timer state lives in the GB struct (save-state safe);
+  the output ring is module-static (not serialized).
+- gbplay: SDL_OpenAudioDevice + SDL_QueueAudio each frame, dropping if the queue backs up >0.2s.
+- gbemu --audio-raw dumps PCM (for the gate + offline listening).
+
+### Verified
+- libbet: 489357 stereo pairs (10.2s), peak 4608, 132k non-zero samples — audible, and bit-for-bit
+  DETERMINISTIC across runs. New audio gate test (hash). gbplay builds + runs headless with audio.
+- No regression: dmg_sound register tests + full gate 123 -> 124. (The synth reads channel state;
+  it doesn't change the register/length behavior the dmg_sound tests check.)
+
+### Notes
+- No high-pass/DC filter yet (bipolar mix keeps it ~DC-free); audio polish is a possible later round.
+  The duty-step-on-retrigger and exact channel phase aren't sample-accurate (no test needs it) but
+  sound correct. Synth is the basis for eventually attacking the sample-accurate same-suite APU tests.
+
 ## Round 20 — INTERACTIVE PLAYABLE FRONTEND (PASS 122->123)  [committed + pushed]
 
 ### What was built

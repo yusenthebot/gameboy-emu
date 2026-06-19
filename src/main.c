@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     const char *path = argv[1];
     int frames = 0, mooneye = 0;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL;
-    const char *load_state = NULL, *save_state = NULL;
+    const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
     u64 max_cycles = 350000000ULL;
 
     for (int i = 2; i < argc; i++) {
@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
+        else if (!strcmp(argv[i], "--audio-raw") && i + 1 < argc) audio_raw = argv[++i];
         else if (!strcmp(argv[i], "--cycles") && i + 1 < argc) max_cycles = strtoull(argv[++i], NULL, 0);
         else if (argv[i][0] != '-') max_cycles = strtoull(argv[i], NULL, 0);
     }
@@ -95,9 +96,23 @@ int main(int argc, char **argv) {
     if (frames > 0) {
         /* Frame-dump mode (with optional scripted input). */
         int ke = 0;
+        FILE *af = audio_raw ? fopen(audio_raw, "wb") : NULL;
+        i16 sbuf[2048];
+        u64 lastf = gb.frame_count;
         while (gb.cycles < max_cycles && gb.frame_count < (u64)frames) {
             while (ke < nkev && gb.frame_count >= kev[ke].frame) gb.buttons = kev[ke++].mask;
             cpu_step(&gb);
+            if (af && gb.frame_count != lastf) {           /* drain audio each frame */
+                lastf = gb.frame_count;
+                int n = apu_drain_samples(&gb, sbuf, 1024);
+                if (n) fwrite(sbuf, sizeof(i16), (size_t)n * 2, af);
+            }
+        }
+        if (af) {
+            int n = apu_drain_samples(&gb, sbuf, 1024);
+            if (n) fwrite(sbuf, sizeof(i16), (size_t)n * 2, af);
+            fclose(af);
+            fprintf(stderr, "wrote audio %s\n", audio_raw);
         }
         fprintf(stderr, "frames=%llu cycles=%llu\n",
                 (unsigned long long)gb.frame_count, (unsigned long long)gb.cycles);

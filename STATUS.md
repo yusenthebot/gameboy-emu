@@ -4,9 +4,17 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 21 (complete, committed + pushed) — APU AUDIO SYNTHESIS (sound! +1)
+SUBSTRATE: C11 + clang  (gbemu headless harness + gbplay SDL2 frontend with audio)
+PASS COUNT: 124/124  (15 serial + acid2 + 9 framehash + 2 game + 3 savestate + 1 audio + 1 frontend + 92)
+  Round 21: APU sample synthesis (apu.c synth_tick) — square ch1/2 (duty+freq timer), wave ch3
+  (sample stepping), noise ch4 (LFSR), bipolar mix (DC-free) + NR51 panning + NR50 master vol,
+  resampled to 48kHz into a ring buffer. gbplay feeds it to SDL_audio (SDL_QueueAudio, drop on
+  backlog). gbemu --audio-raw dumps PCM. +1 audio determinism test (libbet: 10s, peak 4608,
+  deterministic hash). No regression on the dmg_sound register tests. Fulfills "APU 声音" (sound).
+
 ROUND: 20 (complete, committed + pushed) — INTERACTIVE PLAYABLE FRONTEND (gbplay, +1)
-SUBSTRATE: C11 + clang  (gbemu headless harness + gbplay SDL2 frontend)
-PASS COUNT: 123/123  (15 serial + acid2 + 9 framehash + 2 game + 3 savestate + 1 frontend + 92 Mny/WP/SS)
+  Round 20: src/play.c SDL2 window + keyboard + F5/F9 save-states; gbplay==gbemu frame gate test.
   Round 20: built src/play.c — SDL2 window (scaled, DMG green palette), keyboard->joypad
   (arrows/Z/X/Enter/Shift), F5/F9 quick save/load-state, ~59.7fps pacing. Makefile splits
   gbemu (gate harness) + gbplay (SDL2, pre-approved dep). Verified headlessly via SDL dummy
@@ -105,16 +113,16 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 21): frontend video done -> AUDIO is the natural next layer (decide
-  autonomously, don't ask — [[loop-full-autonomy]]):
-  (1) AUDIO: generate APU samples (ch1/2 square via duty+freq timer, ch3 wave, ch4 noise LFSR)
-      mixed to a buffer; feed SDL_audio in gbplay. Verifiable headlessly: hash the generated
-      sample buffer for a fixed run (deterministic). Big "APU 声音" win + makes gbplay fully play.
-  (2) REWIND: ring-buffer of save-states in gbplay (hold a key to step back). Verifiable round-trip.
-  (3) MBC3 + battery .sav — broadens games; .sav round-trip gate-verifiable.
-  (4) A CLI debugger (breakpoints/step/mem-dump) — the "调试器" goal; verifiable.
-  Timing tail (sweep/wave/hblank/lcdon) only if a clean approach appears (sweep needs Blargg src).
-  Recommend (1) audio (completes the playable experience + APU goal, headlessly verifiable).
+NEXT ROUND SEED (round 22): video+audio+save-states+playable done. Decide autonomously, don't
+  ask ([[loop-full-autonomy]]). Options:
+  (1) REWIND: ring-buffer of save-states in gbplay (hold a key to step back in time). Cheap given
+      save-states; verifiable (rewind N then replay == original). Completes "回放".
+  (2) MBC3 + RTC + battery .sav — broadens games (Pokemon-era); .sav round-trip gate-verifiable.
+  (3) CLI debugger (breakpoints / step / mem+reg dump / disassemble) — the "调试器" goal; verifiable.
+  (4) Audio polish: a high-pass DC filter + per-channel envelope click reduction (improves the
+      sound; re-hash the audio gate). Or band-limited mixing.
+  (5) Timing tail (sweep/wave/hblank/lcdon) only if a clean approach appears (sweep needs Blargg src).
+  Lean (1) rewind (cheap, completes the save/rewind goal) or (3) debugger (distinct capability).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
