@@ -68,6 +68,7 @@ int fifo_bg_line(GB *g, int y, u8 *out) {
     int fetch_col = 0, fstate = 0, ftimer = 0;
     u16 ftaddr = 0; u8 flo = 0, fhi = 0;
     int warmup = 1, discard = scx & 7, in_win = 0;
+    int seen[10], ns = 0, stall = 0;        /* object stall: mode-3 penalty emerges here */
     int out_x = 0, dot = 0;
 
     while (out_x < 160) {
@@ -78,7 +79,7 @@ int fifo_bg_line(GB *g, int y, u8 *out) {
             fetch_col = 0; warmup = 1;
             discard = (wx < 7) ? (7 - wx) : 0;   /* window starting left of x=0 */
         }
-        if (++ftimer >= 2) {
+        if (stall == 0 && ++ftimer >= 2) {       /* BG fetcher pauses during an object fetch */
             ftimer = 0;
             if (fstate == 0) {
                 int mapx = in_win ? (fetch_col & 0x1F) : (((scx >> 3) + fetch_col) & 0x1F);
@@ -103,39 +104,53 @@ int fifo_bg_line(GB *g, int y, u8 *out) {
                 }
             }
         }
-        if (flen > 0) {
-            u8 cn = fifo[fhead]; fhead = (fhead + 1) & 15; flen--;
-            if (discard > 0) { discard--; }
-            else {
-                /* sprite fetch: mix every object whose leftmost visible pixel is at
-                 * out_x into the OBJ FIFO (transparent slots only -> X/index order wins). */
+        if (stall > 0) {
+            stall--;                                  /* object fetch in progress: no pixel out */
+        } else if (flen > 0) {
+            if (discard > 0) {                        /* SCX fine-scroll discard */
+                fhead = (fhead + 1) & 15; flen--; discard--;
+            } else {
+                /* Reaching an object stalls the pipeline to fetch it: a flat 6 dots,
+                 * plus a once-per-BG-tile alignment cost. This is where the mode-3
+                 * object penalty EMERGES (the scanline renderer instead computes it). */
+                int st = 0;
                 for (int s = 0; s < nsp; s++) {
                     if (sp[s].fetched || sp[s].x >= 168) continue;
                     int left = sp[s].x - 8;
-                    if (left > out_x) break;            /* sorted by x: none earlier remain */
-                    int off = (left < out_x) ? (out_x - left) : 0;   /* off-screen-left */
+                    if (left > out_x) break;          /* sorted by x: none earlier remain */
                     sp[s].fetched = 1;
-                    for (int p = off; p < 8; p++) {
+                    int bgp = (sp[s].x - 8) + scx, tile = bgp >> 3, considered = 0;
+                    for (int k = 0; k < ns; k++) if (seen[k] == tile) { considered = 1; break; }
+                    if (!considered) {
+                        seen[ns++] = tile;
+                        int off = (sp[s].x == 0) ? 0 : (bgp & 7), p = (7 - off) - 2;
+                        if (p > 0) st += p;
+                    }
+                    st += 6;
+                    int soff = (left < out_x) ? (out_x - left) : 0;   /* off-screen-left */
+                    for (int p = soff; p < 8; p++) {
                         int bit = (sp[s].attr & 0x20) ? p : (7 - p);
                         u8 c = (u8)((((sp[s].hi >> bit) & 1) << 1) | ((sp[s].lo >> bit) & 1));
-                        int pos = p - off;
-                        if (c && obj_cn[pos] == 0) {     /* fill transparent slot */
+                        int pos = p - soff;
+                        if (c && obj_cn[pos] == 0) {
                             obj_cn[pos] = c;
                             obj_pal[pos] = (sp[s].attr & 0x10) ? g->obp1 : g->obp0;
                             obj_bh[pos] = (sp[s].attr & 0x80) ? 1 : 0;
                         }
                     }
                 }
-                u8 shade;
-                if (obj_cn[0] && !(obj_bh[0] && cn != 0))
-                    shade = (u8)((obj_pal[0] >> (obj_cn[0] * 2)) & 3);
-                else
-                    shade = (u8)((g->bgp >> (cn * 2)) & 3);
-                out[out_x++] = shade;
-                for (int p = 0; p < 7; p++) {            /* shift the OBJ FIFO */
-                    obj_cn[p] = obj_cn[p + 1]; obj_pal[p] = obj_pal[p + 1]; obj_bh[p] = obj_bh[p + 1];
+                if (st > 0) { stall = st - 1; }       /* pause; this dot is the first stall dot */
+                else {
+                    u8 cn = fifo[fhead]; fhead = (fhead + 1) & 15; flen--;
+                    u8 shade = (obj_cn[0] && !(obj_bh[0] && cn != 0))
+                             ? (u8)((obj_pal[0] >> (obj_cn[0] * 2)) & 3)
+                             : (u8)((g->bgp >> (cn * 2)) & 3);
+                    out[out_x++] = shade;
+                    for (int p = 0; p < 7; p++) {
+                        obj_cn[p] = obj_cn[p + 1]; obj_pal[p] = obj_pal[p + 1]; obj_bh[p] = obj_bh[p + 1];
+                    }
+                    obj_cn[7] = obj_pal[7] = obj_bh[7] = 0;
                 }
-                obj_cn[7] = obj_pal[7] = obj_bh[7] = 0;
             }
         }
         dot++;

@@ -100,7 +100,28 @@ int main(int argc, char **argv) {
                 if (fb[x] != gb.fb[yy * 160 + x]) { ok = 0; break; }
             tested++;
         }
-        fprintf(stderr, "RESULT: %s (%d lines)\n", ok ? "PASS" : "FAIL", tested);
+        /* timing: the FIFO's object mode-3 penalty must EMERGE = obj_mode3_penalty
+         * + 3 (the scanline penalty's -3 line fudge that a true pipeline lacks). */
+        int tmatch = 1, tn = 0;
+        for (int cfg = 0; cfg < 40 && tmatch; cfg++) {
+            for (int i = 0; i < 40; i++) {
+                gb.oam[i * 4 + 0] = (u8)(16 + (i * (cfg + 1) + 5) % 140);
+                gb.oam[i * 4 + 1] = (u8)((i * (cfg + 3)) % 176);
+                gb.oam[i * 4 + 2] = (u8)(i * 3);
+                gb.oam[i * 4 + 3] = (u8)((i * 5) & 0xF0);
+            }
+            int scx = cfg % 8, yy = (cfg * 11) % 144; u8 fb[160];
+            gb.scx = (u8)scx; gb.scy = 0;
+            gb.lcdc = 0x93; int won = fifo_bg_line(&gb, yy, fb);   /* objects on */
+            gb.lcdc = 0x91; int woff = fifo_bg_line(&gb, yy, fb);  /* objects off */
+            gb.lcdc = 0x93; int pen = obj_mode3_penalty(&gb, yy);
+            int expect = (pen > 0) ? pen + 3 : 0;
+            if (won - woff != expect) tmatch = 0;
+            tn++;
+        }
+        if (!tmatch) ok = 0;
+        fprintf(stderr, "RESULT: %s (%d px lines, %d timing cfgs)\n",
+                ok ? "PASS" : "FAIL", tested, tn);
         return ok ? 0 : 1;
     }
 

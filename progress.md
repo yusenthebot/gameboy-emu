@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 42 — FIFO step 2c: sprite TIMING (penalty emerges) + expand (PASS 1672->1752)  [committed + pushed]
+
+### Frontier milestone (T-cycle PPU migration, step 2c)
+- In src/ppu_fifo.c, reaching an object now STALLS the pipeline (the BG fetcher pauses): a flat 6 dots
+  for the object fetch, plus a once-per-BG-tile alignment cost max(0,(7-off)-2) where off is the BG fine
+  position. So the mode-3 object penalty now EMERGES from the per-object fetcher stall — exactly what
+  the scanline renderer instead *computes* in obj_mode3_penalty.
+- VALIDATED (--fifo-selftest, both halves): (a) pixels still identical to render_scanline (120 lines),
+  (b) the FIFO's object penalty == obj_mode3_penalty + 3 across 40 OAM configs. The +3 is the scanline
+  penalty's -3 line fudge ("detects mode 0 ~3 dots late") that a true pipeline doesn't need.
+- The FIFO is now a COMPLETE T-cycle pixel pipeline: BG + window + sprites, both pixels and timing,
+  with mode-3 length emerging from fetcher stalls — no calibration constants. Still standalone (ppu.c
+  untouched) so zero gate risk.
+
+### What landed
+- The sprite-timing milestone (frontier) + CGB expansion 851->931. Gate 1672 -> 1752.
+
+### Frontier ladder (## Frontier)
+- Step 1 BG ✓, 2a window ✓, 2b sprite pixels ✓, 2c sprite TIMING ✓ (this round). FIFO is complete.
+- Step 3 (NEXT, the big integrate): drive the real PPU's mode-3 length from the FIFO (drop -3/+8 fudge);
+  re-pass acid2 + intr_2 + 1500+ gambatte PPU. Do it reversibly; a regression means tuning the FIFO's
+  dot constants vs the real PPU's mode3_end. THEN the 2T lcdon / m2int / oamdma sub-cycle tail opens up.
+
 ## Round 41 — FIFO migration step 2b: sprite fetch (pixels) + expand (PASS 1592->1672)  [committed + pushed]
 
 ### Frontier progress (T-cycle PPU migration, step 2b)
