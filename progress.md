@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 18 — APU wave-channel research (PASS 119->119, FLAT)  [committed local, docs only]
+
+### What was attempted
+- APU wave channel (CH3) for dmg_sound 09/10/12. Got the exact DMG spec via gh api
+  (Audio_details.md + Audio_Registers.md): sample index advances every (2048-period)*2 dots
+  reading wave[index>>1]; DMG wave-RAM access while active hits only the byte CH3 reads on
+  the same dot, else 0xFF/ignored; trigger-while-reading corrupts the first 4 wave bytes.
+- Implemented the core (timer + sample index + access window + trigger reset) in apu.c/gb.h.
+  No regression (dmg_sound 01/02/03/06/11 frame-hashes unchanged). But 09/10/12 still fail.
+
+### What did NOT work / why
+- Instrumented test 09: CH3 steps fine (sample index advances), but every wave-RAM read lands
+  at timer=full-period, pos=0 — the test re-triggers around each read, so passing needs the
+  exact trigger->first-read sub-cycle offset + period-divider phase. The wave tests are Blargg
+  BINARIES (no clean .s oracle like the sprite test had), so empirical calibration is harder.
+- Reverted the wave channel (won't ship all-0xFF blocking that's unverified against the test).
+- Also examined hblank_ly_scx (mode-0 IRQ vs +8 field) — likewise a deep calibration.
+
+### Honest note
+- 2nd flat round (R16, R18) on the hard timing tail; R17 (+1 FIFO) between. The tail is genuinely
+  ~1 substantive test per ~2 rounds now. Groundwork saved (docs/apu-wave-channel.md). Round-19
+  seed ranks more-tractable targets (dmg_sound sweep, hblank) before retrying the wave channel.
+
 ## Round 17 — pixel-FIFO OBJ mode-3 penalty (PASS 118->119, FRONTIER CRACKED)  [committed + pushed]
 
 ### What was built (the owner-chosen frontier: FIFO sprite penalty)

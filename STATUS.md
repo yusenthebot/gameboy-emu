@@ -4,15 +4,16 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 17 (complete, committed + pushed) — pixel-FIFO OBJ mode-3 penalty (FRONTIER CRACKED)
+ROUND: 18 (complete, committed local) — APU wave-channel research (gate FLAT, honest)
 SUBSTRATE: C11 + clang
-PASS COUNT: 119/119  (15 serial + acid2 + 9 framehash + 2 game + 92 Mooneye/WP/SameSuite)
-  Round 17: implemented the Pan Docs "OBJ penalty algorithm" (per-object mode-3 stall:
-  considered-tile (pixels-right-of-The-Pixel - 2) + flat 6; X=0 -> offset 0; X>=168 skipped).
-  Got the exact algorithm via `gh api` (WebFetch was blocked). Calibrated the scanline
-  measurement with a per-line -3-dot offset, validated against ALL 105 oracle testcases.
-  +intr_2_mode0_timing_sprites (the highest-leverage PPU test, owner's named "FIFO 像素流水线").
-  No regression (acid2 0/23040, libbet unchanged). Round 16's VRAM blocking pushed in the same bundle.
+PASS COUNT: 119/119  (gate FLAT — no clean +1 landed; researched two hard frontiers)
+  Round 18: attacked the APU wave channel (dmg_sound 09/10/12). Got the exact DMG spec via
+  gh api (sample stepping, the wave-RAM access window, trigger corruption). Implemented the
+  core (no regression on passing dmg_sound) but 09/10/12 still fail: the test re-triggers
+  around each read and needs the exact trigger->first-read sub-cycle offset, and the wave
+  tests are Blargg binaries with NO clean .s oracle (unlike the FIFO). Reverted the unverified
+  blocking. Also looked at hblank_ly_scx (mode-0 IRQ vs +8) — also deep calibration. Saved
+  docs/apu-wave-channel.md. Not pushed (flat round). 2nd flat round on the genuinely-hard tail.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -91,12 +92,17 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 18): sprite penalty DONE. Remaining PPU tail: hblank_ly_scx (mode-0
-  IRQ vs +8 field offset), lcdon_timing/write (first-frame LY+STAT+OAM+VRAM), vblank_stat_intr.
-  Other tails: APU wave channel (dmg_sound 09/10/12 — freq timer + DMG wave-RAM window),
-  sample-accurate same-suite APU (~74), boot_div (handoff timing), MBC3+RTC+.sav. The
-  interactive minifb/SDL+cpal frontend remains the big diversification (needs owner present
-  to verify). Consider re-running the completeness sweep too. Pick the next tractable frontier.
+NEXT ROUND SEED (round 19): the remaining test tail is all deep sub-cycle calibration (each
+  test ~1-2 dedicated rounds). Tractability ranking to try:
+  (1) dmg_sound sweep 04/05/07 — ch1 sweep already exists; render the result screen to see
+      the failing subtest, calibrate the sweep overflow/period-sync edge cases. Frame-hash gated.
+  (2) hblank_ly_scx — mode-0-IRQ-vs-LY timing; try the sprite-style forced-offset sweep (but
+      guard intr_2_0/intr_2_mode0 don't regress).
+  (3) APU wave channel (docs/apu-wave-channel.md) — hard (no .s oracle); needs the trigger->
+      first-read sub-cycle offset; defer unless (1)/(2) dry up.
+  Also: MBC3+RTC+.sav is a real FEATURE (not a mooneye test) — could add a synthetic save-
+  persistence check to the gate. And the interactive frontend stays available (owner present).
+  If two more rounds dry up, re-surface to the owner (frontend vs slower timing-tail cadence).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
