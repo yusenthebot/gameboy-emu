@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-2107%2F2107%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-2187%2F2187%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -34,7 +34,7 @@ sub-instruction timing tests.
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **2107/2107 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **2187/2187 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -157,7 +157,7 @@ make                                  # builds ./gbemu (headless)
 ./gbemu game.gb --frames 200 --load-state s.gss --png out.png
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 2107/2107
+./tools/run_tests.sh                  # -> PASS: 2187/2187
 ```
 
 ### Play it (interactive SDL2 frontend)

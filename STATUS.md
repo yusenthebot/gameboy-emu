@@ -4,17 +4,19 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 46 (complete, committed + pushed) — frontier ATTEMPT: DMG STAT-write bug (regressed, reverted) + expand (+80)
+ROUND: 47 (complete, committed + pushed) — NEW FRONTIER found: mealybug per-dot rendering + expand (+80)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 2107/2107  (688 gambatte-DMG + 1286 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 46: ATTEMPTED a concrete sub-cycle quirk = the DMG STAT-write bug (writing FF41 momentarily
-  enables all STAT sources -> spurious IRQ). Diagnosed: gambatte statwirq tests under-fire (mine=0 exp=2)
-  = I lack the bug; m0/m2enable over-fire (mine=2 exp=0) = a separate edge. (Also fixed my broken survey:
-  --mooneye prints "RESULT: PASS" not "Passed"; ALL mooneye PPU-timing tests already pass.) Tried 3 STAT-
-  write variants: glitch+postcheck broke 51, glitch-only broke 45, staleness-fixed broke 121. ALL regressed
-  -> the STAT-write IRQ's exact cycle is intricately calibration-sensitive; M-cycle granularity can't add it
-  without cascading. The sub-cycle ceiling, confirmed a 3rd time (after lcdon R38, CPU-model R44). Reverted
-  clean (2027), then +CGB expansion 1206->1286. Gate 2027 -> 2107.
+PASS COUNT: 2187/2187  (688 gambatte-DMG + 1366 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 47: tapped the untapped suites in /tmp/gbtr_x. mooneye-test-suite is EXHAUSTED (I have all the
+  passers; the 30 new fails are other-hardware boot values [SGB/MGB/dmg0] or sub-cycle). BUT found a real
+  RESOLVABLE frontier: mealybug-tearoom ppu/m3_* tests change LCDC/SCX/BGP/palette/window MID-mode-3 and
+  the scanline renderer (one snapshot/line) gets 0/24. Built tools/mealybug_check.py (PNG decode, no PIL).
+  *** This CORRECTS round 43: the FIFO integration is NOT a no-op -- it's a no-op only for STATIC scenes;
+  mid-scanline rendering is exactly the FIFO's purpose. Concrete payoff: ~24 DMG + CGB mealybug = ~48 tests. ***
+  +CGB expansion 1286->1366. Gate 2107 -> 2187.
+
+ROUND: 46 (complete, committed + pushed) — frontier ATTEMPT: DMG STAT-write bug (regressed, reverted) + expand (+80)
+  Round 46: 3 STAT-write-bug variants all regressed (broke 45-121); sub-cycle ceiling confirmed 3rd way. +CGB.
 
 ROUND: 45 (complete, committed + pushed) — MILESTONE REVIEW @ 2000 (adversarial verify) + expand (+85)
   Round 45: crossed 2000; adversarially verified libbet renders+progresses, save-states faithful, clean code. +CGB.
@@ -327,16 +329,18 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 47): decide autonomously, don't ask ([[loop-full-autonomy]]). Status of the frontier:
-  The sub-cycle tail is now confirmed gated 3 WAYS (lcdon R38, CPU-is-per-M-cycle R44, STAT-write-bug R46
-  all regressed). Piecemeal sub-cycle quirks RELIABLY break the calibrated gate. The ONLY remaining path is
-  a full T-cycle re-calibration on a SEPARATE parallel CPU/PPU path (big, multi-round, only migrate when it
-  passes strictly more) — high-risk; do NOT attempt in-place. Options:
-  (1) EXPAND (CGB headroom ~400) — the reliable strict-increase; the gate keeps rising honestly.
-  (2) If attempting the frontier: ONLY as a separate parallel-path T-cycle CPU spike, gated, never in-place.
-      Scope it as a multi-round build with its own validation harness; the in-place door is closed (3 proofs).
-  (3) Survey CGB-only sub-cycle clusters that might be M-cycle-resolvable (rare, but check before assuming).
-  Lean (1) expand + occasionally (3); (2) only as a deliberate dedicated effort. NEVER break the 2107 gate.
+NEXT ROUND SEED (round 48): decide autonomously, don't ask ([[loop-full-autonomy]]). THE FRONTIER IS BACK:
+  (1) FIFO PER-DOT RENDERING integration (the genuine frontier, concrete ~48-test payoff via mealybug).
+      Plan (spike-then-migrate): make the FIFO a STATEFUL per-dot renderer stepped by ppu_tick during
+      mode 3 (state in GB struct), reading LIVE registers each dot so mid-scanline LCDC/SCX/BGP/palette/
+      window changes are captured -> pixels accumulate into g->fb. MUST stay pixel-identical to the
+      scanline renderer for STATIC scenes (acid2 + games + frame-hashes + 2187 gate) AND newly pass the
+      mealybug m3_* tests. Keep render_scanline as the fallback until the FIFO path is proven; migrate
+      only when it passes strictly MORE. Validate with tools/mealybug_check.py + the full gate.
+  (2) EXPAND (CGB ~300) — the strict-increase backstop while (1) is built.
+  Lean (1) — this is the real "FIFO 像素流水线" the goal names, now with a sized payoff. Mind: mealybug
+  also needs the register WRITE to land at the right dot (M-cycle CPU); some may need sub-cycle (won't pass).
+  KEY: FIFO validated pixel-identical for static (120 combos); mealybug_check.py built; render_scanline exposed.
   KEY: --mooneye prints "RESULT: PASS"; all mooneye PPU-timing PASS; piecemeal sub-cycle = regression (proven 3x).
   KEY: FIFO complete+validated; mode3_end=172+scx&7+obj_mode3_penalty; FIFO base 171, penalty=obj_pen+3.
   KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.

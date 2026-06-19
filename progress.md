@@ -1,5 +1,38 @@
 # Progress Log
 
+## Round 47 — NEW FRONTIER: mealybug per-dot rendering (FIFO resurrected) + expand (PASS 2107->2187)  [committed + pushed]
+
+### Tapped the untapped suites in /tmp/gbtr_x (I'd only been mining gambatte)
+- mooneye-test-suite: EXHAUSTED. I already vendor all the passers; the 30 new DMG fails are other-hardware
+  boot values (boot_regs/boot_div for SGB/MGB/dmg0 -- different hardware, not bugs) or sub-cycle (lcdon,
+  oam_dma, rapid_toggle). same-suite: 2/71 (the rest are precise APU/DIV = sub-cycle). gbmicrotest/scribbl/
+  turtle show 0 only because they don't use the mooneye register convention (a detection gap, not fails).
+
+### The real find: mealybug-tearoom = a RESOLVABLE PPU-rendering frontier
+- The ppu/m3_* tests change LCDC / SCX / BGP / OBP / window MID-mode-3 and check the exact rendered frame
+  against a reference PNG. My scanline renderer renders each line from ONE register snapshot, so it gets
+  0/24 DMG. Built tools/mealybug_check.py (manual grayscale-PNG decode via zlib, no PIL; quantize to 4
+  shades; exact compare).
+- *** This CORRECTS round 43's "FIFO integration is a no-op." That was true only for STATIC scenes. The
+  mealybug m3_* tests are precisely what a per-dot FIFO renderer captures and a scanline renderer cannot.
+  So the FIFO -- built + validated over rounds 39-42 -- has a real, sized payoff after all: ~24 DMG +
+  CGB variants = ~48 tests. The "FIFO 像素流水线" the goal names finally has its concrete reason to exist. ***
+
+### What did NOT work / dead ends ruled out
+- mooneye/same-suite as new-pass sources (exhausted / sub-cycle). gbmicrotest etc. need a custom harness.
+
+### What landed
+- tools/mealybug_check.py (reusable). CGB gambatte expansion 1286 -> 1366. Gate 2107 -> 2187.
+
+### Frontier ladder (## Frontier)
+- THE frontier (round 48+): integrate the FIFO as a STATEFUL per-dot renderer in ppu_tick, reading live
+  registers each mode-3 dot so mid-scanline changes render correctly. Spike-then-migrate: must stay
+  pixel-identical to the scanline for static scenes (the 2187 gate: acid2/games/frame-hashes) AND newly
+  pass mealybug m3_*. Keep render_scanline as fallback until proven; migrate only when strictly more pass.
+- Caveat: mealybug also needs the register write to land at the right dot (M-cycle CPU timing); some tests
+  may need sub-cycle precision and won't pass -- but many should.
+- Sub-cycle STAT/timing tail remains gated behind the (separate-path) T-cycle re-calibration (rounds 38/44/46).
+
 ## Round 46 — frontier ATTEMPT: DMG STAT-write bug (regressed, reverted) + expand (PASS 2027->2107)  [committed + pushed]
 
 ### Real pushing on the sub-cycle frontier (an honest negative result)
