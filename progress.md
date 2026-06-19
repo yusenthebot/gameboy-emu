@@ -1,5 +1,29 @@
 # Progress Log
 
+## Round 39 — FRONTIER: pixel-FIFO PPU spike begun + expand (PASS 1395->1514)  [committed + pushed]
+
+### Frontier decision + first step
+- The M-cycle ceiling (round 38) is the wall before the timing tail. The real way past it is a
+  per-T-cycle PPU where mode-3 length emerges from a pixel FIFO (the "FIFO 像素流水线" the goal names),
+  not from calibrated penalties. A full rewrite can't land safely in one round (would break the 1395
+  mid-migration), so per the loop's spike-then-migrate guardrail I began it as a STANDALONE spike.
+- src/ppu_fifo.c: a pixel-FIFO BG renderer. Fetcher = 2 dots/step (tile id, low, high), a 16-pixel
+  FIFO that pushes 8 when it has room (<=8), a warm-up first fetch, and the SCX&7 fine-scroll discard.
+- VALIDATED standalone (--fifo-selftest, new +1 gate test): it reproduces the background formula across
+  720 SCX/SCY/line combinations (pixel-exact vs the scanline renderer), AND the mode-3 length EMERGES
+  from the pipeline as 171 + (SCX&7) — the correct shape, one dot off the canonical 172 (a tuning detail
+  for migration, NOT a calibration constant). Zero risk to the working PPU: ppu.c untouched, new file.
+
+### What landed
+- The FIFO spike (+1) + expansion DMG 622->670, CGB 641->711 (+118). Gate 1395 -> 1514, crossed 1500.
+
+### Migration plan (## Frontier)
+- Step 1 (DONE): BG pixel-FIFO foundation, validated.
+- Step 2: window fetch (restart fetcher at WX) + sprite fetch (OBJ FIFO mix + mode-3 stall) -> full line.
+- Step 3: integrate as the real PPU's mode-3 driver; drop the -3/+8 fudge; re-pass acid2/intr_2/gambatte.
+- Step 4: T-cycle the mode transitions (the 2T lcdon lateness) -> unlock lcdon, m2int, the precise tail.
+- Guardrail: every step standalone-validated first; never break the gate at a round boundary.
+
 ## Round 38 — lcdon spec -> M-cycle ceiling confirmed; expand (PASS 1227->1395)  [committed + pushed]
 
 ### The definitive finding

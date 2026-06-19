@@ -4,9 +4,18 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 38 (complete, committed + pushed) — lcdon spec fetched -> M-cycle CEILING confirmed; expand (+168)
+ROUND: 39 (complete, committed + pushed) — FRONTIER: pixel-FIFO PPU spike begun + expand (+119)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1395/1395  (622 gambatte-DMG + 641 gambatte-CGB[incl 81 audio] + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 1514/1514  (670 gambatte-DMG + 711 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 39: STARTED the per-T-cycle PPU migration (the way past the M-cycle ceiling). src/ppu_fifo.c =
+  a pixel-FIFO BG renderer (fetcher 2 dots/step + 16-px FIFO push-when-<=8 + warm-up + SCX&7 discard).
+  VALIDATED standalone (--fifo-selftest, +1 gate): reproduces the BG formula across 720 SCX/SCY/line
+  combos, AND mode-3 length EMERGES from the pipeline = 171+(SCX&7) [canonical 172, 1-dot tuning detail]
+  rather than the scanline renderer's calibrated penalty. ZERO risk to the working PPU (standalone file).
+  Spike-then-migrate: this is step 1. +expansion DMG 622->670, CGB 641->711. Gate 1395 -> 1514 (crossed 1500).
+
+ROUND: 38 (complete, committed + pushed) — lcdon spec fetched -> M-cycle CEILING confirmed; expand (+168)
+  Round 38: lcdon needs 2 T-cycle precision; my 4-T tick can't -> M-cycle ceiling; expanded +168.
   Round 38: FETCHED the authoritative LCD-on spec (gh api Gekkio/mooneye lcdon_timing-GS.s). Behavior:
   DMG line 0 after enable has NO mode 2 (mode 0 -> straight to mode 3) AND the PPU is LATE BY 2 T-CYCLES
   (CGB differs). Implemented it (lcd_on_delay=2 + line-0 mode-0, gated !cgb) -> broke 21, fixed 0 lcdon.
@@ -275,16 +284,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 39): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) FRONTIER DECISION (big): per-T-cycle PPU/CPU rewrite to unlock the whole remaining timing tail
-      (lcdon 2T, oamdma sub-cycle, m2int STAT, _ds_ audio). HUGE + risky; spike-then-migrate, never
-      delete-and-hope. Only if I judge the unlock (~hundreds of tests) worth the rewrite risk. Weigh it.
-  (2) EXPAND (reliable +N; ~500 DMG + ~1060 CGB passers remain; gate ~55s, fine). Keeps the metric rising.
-  (3) Re-survey for any LAST M-cycle-resolvable cluster (most are sub-cycle now; diminishing).
-  (4) Split fast/slow gate if gambatte > ~1500 (gate climbing toward 60s+).
-  Lean: (2) expand to keep rising, and seriously weigh (1) the per-T-cycle rewrite as the real frontier
-  to break the M-cycle ceiling. The clean wins are done; sub-cycle precision is the wall.
-  KEY: gh api for specs; CGB digits b/w; --cgb + --cycles 2.5M for DS; CGB audio via --cgb --apu-activity.
+NEXT ROUND SEED (round 40): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) FIFO MIGRATION step 2: extend src/ppu_fifo.c to a FULL line — window fetch (restart fetcher at WX,
+      win tilemap) + sprite fetch (per-OBJ FIFO mix + the mode-3 stall), still standalone + validated vs
+      render_scanline pixels AND obj_mode3_penalty. Builds the T-cycle PPU safely (no risk to the gate).
+  (2) FIFO step 3 (after step 2): integrate the FIFO as the real PPU's mode-3 length driver (drop the
+      -3/+8 calibration), re-pass acid2 + intr_2 + gambatte PPU; then 2T lcdon etc. become reachable.
+  (3) EXPAND (reliable +N; gate ~55s). Migration order: BG(done)->window+sprite->integrate->T-cycle modes.
+  Lean (1) FIFO step 2 as the frontier + a little (3). Spike-then-migrate; never break the gate at a boundary.
+  Consider a fast/slow gate split soon (gate past 1500). KEY: gh api for specs; --cgb + --cycles 2.5M DS.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.
   KEY: CGB digit tiles are black/white so no RGB formula needed; --cgb for CGB hardware.
   NOTE: --apu-activity is cycle-based (robust). gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.

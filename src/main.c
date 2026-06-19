@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
     }
     const char *path = argv[1];
     int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0;
-    int wram_selftest = 0, hdma_selftest = 0, apu_activity = 0;
+    int wram_selftest = 0, hdma_selftest = 0, apu_activity = 0, fifo_selftest = 0;
     const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--sav") && i + 1 < argc) sav_path = argv[++i];
         else if (!strcmp(argv[i], "--cgb")) force_cgb = 1;   /* run as CGB hardware */
         else if (!strcmp(argv[i], "--apu-activity")) apu_activity = 1;
+        else if (!strcmp(argv[i], "--fifo-selftest")) fifo_selftest = 1;
         else if (!strcmp(argv[i], "--wram-selftest")) wram_selftest = 1;
         else if (!strcmp(argv[i], "--hdma-selftest")) hdma_selftest = 1;
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
@@ -67,6 +68,33 @@ int main(int argc, char **argv) {
             else if (!strcmp(b, "select")) m = 0x40; else if (!strcmp(b, "start")) m = 0x80;
             kev[nkev].frame = fr; kev[nkev].mask = m; nkev++;
         }
+    }
+
+    if (fifo_selftest) {
+        /* Pixel-FIFO BG renderer (T-cycle PPU spike): validate it reproduces the
+         * background formula across SCX/SCY/line, with no ROM. */
+        memset(&gb, 0, sizeof gb);
+        gb.lcdc = 0x91; gb.bgp = 0xE4;                 /* LCD on, tiles @8000, BG map @9800 */
+        for (int i = 0; i < 0x400; i++) gb.vram[0x1800 + i] = (u8)(i * 7 + 3);   /* tilemap */
+        for (int i = 0; i < 0x1000; i++) gb.vram[i] = (u8)(i * 37 + 11);          /* tile data */
+        int ok = 1, tested = 0;
+        for (int scx = 0; scx < 256 && ok; scx += 13)
+        for (int scy = 0; scy < 256 && ok; scy += 31)
+        for (int yy = 0; yy < 144 && ok; yy += 47) {
+            gb.scx = (u8)scx; gb.scy = (u8)scy;
+            u8 fb[160]; fifo_bg_line(&gb, yy, fb);
+            for (int x = 0; x < 160; x++) {
+                int bx = (x + scx) & 0xFF, by = (yy + scy) & 0xFF;
+                u8 id = gb.vram[0x1800 + (by / 8) * 32 + (bx / 8)];
+                int ta = id * 16;
+                u8 lo = gb.vram[ta + (by % 8) * 2], hi = gb.vram[ta + (by % 8) * 2 + 1];
+                u8 cn = (u8)((((hi >> (7 - (bx % 8))) & 1) << 1) | ((lo >> (7 - (bx % 8))) & 1));
+                if (fb[x] != (u8)((gb.bgp >> (cn * 2)) & 3)) { ok = 0; break; }
+            }
+            tested++;
+        }
+        fprintf(stderr, "RESULT: %s (%d lines)\n", ok ? "PASS" : "FAIL", tested);
+        return ok ? 0 : 1;
     }
 
     memset(&gb, 0, sizeof(gb));

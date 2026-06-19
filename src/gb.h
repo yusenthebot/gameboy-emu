@@ -188,6 +188,7 @@ int  cart_load_battery(GB *gb, const char *path);
 u8   bus_read(GB *gb, u16 addr);
 void bus_write(GB *gb, u16 addr, u8 val);
 void hdma_hblank_step(GB *gb);          /* CGB HBlank VRAM DMA: one block per HBlank */
+int  fifo_bg_line(GB *g, int y, u8 *out);  /* pixel-FIFO BG renderer (T-cycle PPU spike) */
 void dma_tick(GB *gb, int tcycles);
 
 /* timer.c */

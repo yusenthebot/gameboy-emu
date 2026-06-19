@@ -180,6 +180,11 @@ total=$((total+1))
 if "$BIN" roms/cpu_instrs.gb --hdma-selftest 2>&1 | grep -q "RESULT: PASS"; then
     pass=$((pass+1)); row "CGB VRAM DMA (HDMA)" "PASS"
 else fail=$((fail+1)); row "CGB VRAM DMA (HDMA)" "FAIL"; fi
+# --- pixel-FIFO BG renderer (T-cycle PPU spike): reproduces the BG formula ---
+total=$((total+1))
+if "$BIN" roms/cpu_instrs.gb --fifo-selftest 2>&1 | grep -q "RESULT: PASS"; then
+    pass=$((pass+1)); row "pixel-FIFO BG renderer (spike)" "PASS"
+else fail=$((fail+1)); row "pixel-FIFO BG renderer (spike)" "FAIL"; fi
 
 # --- rewind: in-memory snapshot round-trip + rewind/replay must be bit-identical ---
 total=$((total+1))
