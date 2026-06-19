@@ -1,5 +1,25 @@
 # Progress Log
 
+## Round 22 — CLI DEBUGGER + SM83 DISASSEMBLER (PASS 124->125)  [committed + pushed]
+
+### What was built
+- src/disasm.c: a full SM83 disassembler. disasm(g, addr, buf, sz) -> instruction length. The
+  regular blocks are algorithmic — LD r,r' (0x40-0x7F, 0x76=HALT), ALU A,r (0x80-0xBF), and the
+  whole CB page (RLC/RRC/RL/RR/SLA/SRA/SWAP/SRL + BIT/RES/SET b,r); the irregular 0x00-0x3F and
+  0xC0-0xFF use a template table with operand markers (%n imm8, %w imm16, %r relative->target).
+- src/debug.c: a --debug REPL reading stdin commands: r(egs) / s(tep [n]) / b(reak addr) /
+  c(ontinue, runs to a PC breakpoint) / m(em addr [n]) / d(isasm [addr][n]) / q(uit). Wired into
+  main.c as a 4th mode. Output is deterministic for a ROM+script.
+
+### Verified
+- Spot-checked the disassembler across NOP/JP/RET/CALL/ALU/LD r,r'/LDH/PUSH/POP and CB ops
+  (SRL B, RR D, RR C) — all decode with correct operands. +1 gate test: a scripted session
+  (break 0x0637; cont; disasm; mem; step) hashes to a fixed value. No regression. Gate 124->125.
+
+### Notes
+- Completes the "调试器" goal. Makefile auto-globs src/*.c so disasm.c/debug.c join gbemu (and
+  gbplay) automatically. Last unticked user goal-list item is now 回放 (rewind) -> round 23.
+
 ## Round 21 — APU AUDIO SYNTHESIS (PASS 123->124, sound!)  [committed + pushed]
 
 ### What was built

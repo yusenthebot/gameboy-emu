@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0, mooneye = 0;
+    int frames = 0, mooneye = 0, debug = 0;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
     u64 max_cycles = 350000000ULL;
@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--png") && i + 1 < argc) png_path = argv[++i];
         else if (!strcmp(argv[i], "--raw") && i + 1 < argc) raw_path = argv[++i];
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
+        else if (!strcmp(argv[i], "--debug")) debug = 1;
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
@@ -68,6 +69,12 @@ int main(int argc, char **argv) {
         }
         fprintf(stderr, "loaded state %s (frame %llu)\n", load_state,
                 (unsigned long long)gb.frame_count);
+    }
+
+    if (debug) {
+        debugger_repl(&gb);
+        cart_free(&gb);
+        return 0;
     }
 
     if (mooneye) {

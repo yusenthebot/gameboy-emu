@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-124%2F124%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-125%2F125%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -32,7 +32,7 @@ sub-instruction timing tests.
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **124/124 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **125/125 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -107,6 +107,8 @@ flowchart TB
 | `src/main.c` | 145 | Headless entry point: serial / frame-dump / mooneye / save-state modes |
 | `src/play.c` | 130 | Interactive SDL2 frontend (`gbplay`): window, keyboard → joypad, save-state hotkeys |
 | `src/state.c` | 60 | Save-states: full machine snapshot to a file + restore |
+| `src/disasm.c` | 95 | SM83 disassembler (algorithmic LD/ALU/CB blocks + a table for the rest) |
+| `src/debug.c` | 90 | CLI debugger REPL: regs/step/break/continue/mem/disasm |
 | `src/serial.c` | 50 | Link-port serial capture (the Blargg `Passed/Failed` channel) |
 | `src/gb.h` | 151 | Shared types and the single `GB` machine-state struct |
 
@@ -153,7 +155,7 @@ make                                  # builds ./gbemu (headless)
 ./gbemu game.gb --frames 200 --load-state s.gss --png out.png
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 124/124
+./tools/run_tests.sh                  # -> PASS: 125/125
 ```
 
 ### Play it (interactive SDL2 frontend)
@@ -167,6 +169,13 @@ Controls: **arrows** = D-pad, **Z** = A, **X** = B, **Enter** = Start,
 **Shift** = Select, **F5** = quick-save state, **F9** = load, **Esc** = quit.
 
 Audio plays through SDL (square, wave and noise channels mixed with NR50/NR51 panning).
+
+### Debug it
+
+```sh
+# step, breakpoints, memory, and a full SM83 disassembler
+printf 'd 0x100 8\nbreak 0x150\ncont\nregs\nq\n' | ./gbemu rom.gb --debug
+```
 
 ## How tests are verified (no "looks right")
 

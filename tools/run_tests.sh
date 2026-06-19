@@ -104,6 +104,15 @@ for spec in "${SAVESTATE[@]}"; do
     else fail=$((fail+1)); row "$name" "FAIL (nondeterministic)"; fi
 done
 
+# --- debugger: a scripted session (disasm/break/cont/mem/step) must produce
+#     the exact deterministic output (guards the disassembler + debugger) ---
+total=$((total+1))
+DBG_WANT="954bf306a4e93071f8cdba0f650a8e2f0f9a786fff0267236c99f1c05b7889a2"
+DBG_GOT=$(printf 'break 0x0637\ncont\nd 0x0637 3\nmem 0xFF40 8\nstep 2\nq\n' \
+          | "$BIN" roms/cpu_instrs.gb --debug 2>/dev/null | shasum -a 256 | cut -d' ' -f1)
+if [ "$DBG_GOT" = "$DBG_WANT" ]; then pass=$((pass+1)); row "debugger scripted session" "PASS"
+else fail=$((fail+1)); row "debugger scripted session" "FAIL ($DBG_GOT)"; fi
+
 # --- APU audio synthesis: a fixed run must produce deterministic, non-silent PCM.
 #     (verified once to be audible; this guards the synth against regression) ---
 AUDIO=(

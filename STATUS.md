@@ -4,9 +4,16 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 22 (complete, committed + pushed) — CLI DEBUGGER + SM83 DISASSEMBLER (+1)
+SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay SDL2 frontend with audio)
+PASS COUNT: 125/125  (15 serial + acid2 + 9 fh + 2 game + 3 ss + 1 audio + 1 frontend + 1 debugger + 92)
+  Round 22: src/disasm.c (full SM83 disassembler — algorithmic LD r,r'/ALU/CB blocks + a table
+  for the rest, operand decode) + src/debug.c (--debug REPL: regs/step/break/cont/mem/disasm/quit).
+  +1 gate test: a scripted session (break/cont/disasm/mem/step) hashes to a fixed deterministic
+  output. No regression. Advances "调试器". Run: `printf 'd 0x100 8\nq\n' | ./gbemu rom --debug`.
+
 ROUND: 21 (complete, committed + pushed) — APU AUDIO SYNTHESIS (sound! +1)
-SUBSTRATE: C11 + clang  (gbemu headless harness + gbplay SDL2 frontend with audio)
-PASS COUNT: 124/124  (15 serial + acid2 + 9 framehash + 2 game + 3 savestate + 1 audio + 1 frontend + 92)
+  Round 21: apu.c synth (square/wave/noise + pan/vol -> 48kHz); gbplay SDL_audio; +1 audio test.
   Round 21: APU sample synthesis (apu.c synth_tick) — square ch1/2 (duty+freq timer), wave ch3
   (sample stepping), noise ch4 (LFSR), bipolar mix (DC-free) + NR51 panning + NR50 master vol,
   resampled to 48kHz into a ring buffer. gbplay feeds it to SDL_audio (SDL_QueueAudio, drop on
@@ -113,16 +120,19 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 22): video+audio+save-states+playable done. Decide autonomously, don't
-  ask ([[loop-full-autonomy]]). Options:
-  (1) REWIND: ring-buffer of save-states in gbplay (hold a key to step back in time). Cheap given
-      save-states; verifiable (rewind N then replay == original). Completes "回放".
-  (2) MBC3 + RTC + battery .sav — broadens games (Pokemon-era); .sav round-trip gate-verifiable.
-  (3) CLI debugger (breakpoints / step / mem+reg dump / disassemble) — the "调试器" goal; verifiable.
-  (4) Audio polish: a high-pass DC filter + per-channel envelope click reduction (improves the
-      sound; re-hash the audio gate). Or band-limited mixing.
-  (5) Timing tail (sweep/wave/hblank/lcdon) only if a clean approach appears (sweep needs Blargg src).
-  Lean (1) rewind (cheap, completes the save/rewind goal) or (3) debugger (distinct capability).
+GOAL-LIST STATUS: CPU+timing ✓, scanline PPU+acid2 ✓, Mooneye/WP/SameSuite (partial), MBC ✓,
+  存档 (save-states) ✓, APU 声音 ✓, FIFO sprite penalty ✓, 调试器 ✓, 即时存档 ✓. Remaining from
+  the user's list: 回放 (rewind), and the long timing tail (sweep/wave/hblank/lcdon — source/full
+  -chain-dependent). Plus broadening: MBC3+RTC, CGB mode.
+
+NEXT ROUND SEED (round 23): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) REWIND (回放, last unticked goal-list item): in-memory ring of snapshots (add gb_snapshot/
+      gb_restore to state.c), hold a key in gbplay to step back; gate test = capture ring, rewind,
+      replay == straight. Completes the user's explicit goal list.
+  (2) MBC3+RTC+battery .sav — broadens games (Pokemon-era); .sav round-trip gate-verifiable.
+  (3) Audio polish (high-pass DC filter) or debugger polish (watchpoints, run-to-vblank).
+  (4) Timing tail only if a clean approach appears (sweep needs Blargg src; wave needs sub-cycle).
+  Lean (1) rewind — it's the last unchecked item on the user's stated goal list.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

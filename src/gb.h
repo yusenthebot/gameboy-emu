@@ -198,6 +198,10 @@ int  apu_drain_samples(GB *gb, i16 *out, int max_pairs);  /* returns stereo pair
 int gb_save_state(GB *gb, const char *path);
 int gb_load_state(GB *gb, const char *path);
 
+/* disasm.c / debug.c */
+int  disasm(GB *gb, u16 addr, char *buf, size_t sz);  /* -> instruction length */
+void debugger_repl(GB *gb);                            /* interactive debugger (stdin) */
+
 /* cpu.c */
 void cpu_init_postboot(GB *gb);
 int  cpu_step(GB *gb);          /* returns T-cycles consumed */
