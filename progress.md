@@ -1,5 +1,29 @@
 # Progress Log
 
+## Round 32 — Undefined-opcode CPU lock-up + gambatte expand (PASS 455->495)  [committed + pushed]
+
+### What was fixed
+- gambatte/undef_ops was 0/10. The 11 undefined SM83 opcodes (D3 DB DD E3 E4 EB EC ED F4 FC FD) HANG
+  the CPU on real hardware (it stops fetching forever; only the clock keeps running). I had treated
+  them as NOP (the execute() default case). Each test renders a hang-indicator digit ("01") BEFORE
+  executing the undefined op, so with NOP my CPU ran past it into "didn't hang" code -> "05".
+- Added g->locked: the execute() default sets it; cpu_step, when locked, only tick(4)s (PPU/timer/APU
+  keep running, CPU never resumes, no interrupt can wake it). cpu_init_postboot clears it. The
+  --mooneye harness still detects ED as the wilbertpol completion breakpoint (it checks the opcode at
+  PC and stops BEFORE executing), so that path is unaffected.
+
+### Verified
+- undef_ops 0/10 -> 10/10. No regression (real Blargg/game ROMs never execute undefined ops in frame
+  mode, so locking them is invisible to the existing gate). Then expanded the digit batch +30
+  (cap 14/category, round-robin for diversity). Gate 455 -> 495.
+
+### Notes / frontier
+- Gate is now ~3 min (363 gambatte ROMs, repo roms/gambatte ~11.5M). Before expanding much further,
+  split a fast core gate from a slow gambatte gate, or gitignore the gambatte ROMs + conditional run.
+- enable_display first-frame-after-LCD-on timing (37/68) is the next real PPU cluster: frame0_ly_count
+  etc. expect a line/IRQ count that depends on the enable cycle; my PPU resets to a clean frame on
+  LCDC.7 0->1 but real hardware continues the dot counter. ~31 tests behind that one behavior.
+
 ## Round 31 — APU unipolar DAC fix (duty-pattern audio) (PASS 438->455)  [committed + pushed]
 
 ### What was traced + fixed

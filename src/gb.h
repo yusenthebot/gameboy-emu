@@ -99,6 +99,7 @@ typedef struct GB {
     bool halted;
     bool halt_bug;          /* next fetch does not advance PC */
     bool stopped;
+    bool locked;            /* undefined opcode hung the CPU (only the clock runs) */
 
     /* Memory regions */
     u8 vram[0x4000];        /* 2 banks (CGB); DMG uses bank 0 only */

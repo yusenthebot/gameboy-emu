@@ -400,12 +400,17 @@ static void execute(GB *g) {
 
         case 0xCB: do_cb(g); return;
 
-        default: return;                                   /* illegal -> nop */
+        default: g->locked = true; return;                 /* undefined op hangs the CPU */
     }
 }
 
 int cpu_step(GB *g) {
     u64 start = g->cycles;
+
+    if (g->locked) {                  /* hard hang: clock runs, CPU never resumes */
+        tick(g, 4);
+        return (int)(g->cycles - start);
+    }
 
     if (g->halted) {
         if (g->ie & g->io[IF_REG] & 0x1F) {
@@ -442,7 +447,7 @@ void cpu_init_postboot(GB *g) {
     g->sp = 0xFFFE;
     g->pc = 0x0100;
     g->ime = false; g->ime_pending = false;
-    g->halted = false; g->halt_bug = false;
+    g->halted = false; g->halt_bug = false; g->locked = false;
 
     g->div_counter = 0xABCC;
     g->tima = 0; g->tma = 0; g->tac = 0;
