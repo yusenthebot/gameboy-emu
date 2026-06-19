@@ -145,6 +145,7 @@ typedef struct GB {
     u8  svbk;               /* WRAM bank select (FF70 bits 0-2) */
     u8  key1;               /* double-speed prepare/status (FF4D) */
     u8  bcps, ocps;         /* BG/OBJ palette index + auto-increment (FF68/FF6A) */
+    u8  opri;               /* FF6C OBJ priority mode: bit0 1=by X coord (DMG), 0=by OAM index */
     u8  bgpal[64];          /* 8 BG palettes x 4 colors x RGB555 (FF69) */
     u8  objpal[64];         /* 8 OBJ palettes x 4 colors x RGB555 (FF6B) */
 

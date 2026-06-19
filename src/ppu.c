@@ -184,6 +184,12 @@ static void render_scanline_cgb(GB *g, int y) {
         int top = g->oam[i * 4] - 16;
         if (y >= top && y < top + height) sel[n++] = i;
     }
+    if (g->opri & 1)                                 /* OPRI: DMG-style priority by X, ties by OAM */
+        for (int a = 0; a < n - 1; a++)
+            for (int b = a + 1; b < n; b++) {
+                int xa = g->oam[sel[a] * 4 + 1], xb = g->oam[sel[b] * 4 + 1];
+                if (xb < xa || (xb == xa && sel[b] < sel[a])) { int t = sel[a]; sel[a] = sel[b]; sel[b] = t; }
+            }
     bool bg_master = (g->lcdc & LCDC_BG_EN) != 0;    /* LCDC.0 = BG/win master priority */
     for (int s = n - 1; s >= 0; s--) {               /* low OAM index drawn last = on top */
         int i = sel[s];

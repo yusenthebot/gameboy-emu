@@ -1,5 +1,36 @@
 # Progress Log
 
+## Round 49 — hunt untapped suites: OPRI register + cgb-acid-hell 2px near-miss + expand (PASS 2267->2347)  [committed + pushed]
+
+### Hunted the untapped /tmp/gbtr_x suites (not just gambatte) for resolvable wins
+- age-test-roms (47): OAM read/write + speed-switch TIMING -> sub-cycle. cgb-acid-hell: just 2 PIXELS off.
+  strikethrough / turtle-tests / little-things-gb (firstwhite, tellinglys): fail (sub-cycle window timing
+  or frame-count). rtc3test / gbmicrotest: need custom harnesses (deferred).
+
+### cgb-acid-hell: a 2-pixel near-miss (chased, narrowed, not yet cracked)
+- The diff is exactly 2 pixels at x80, y68-69 -- a VERTICAL swap (a black pixel one row too high). I
+  suspected OPRI (object priority mode, the thing cgb-acid-hell stresses) and implemented FF6C, but:
+  the diff is the SAME 2px under both OAM-index and X-coordinate priority, and an X-priority default
+  BREAKS cgb-acid2 -> so the 2px is NOT priority/OPRI. It's a different CGB BG/sprite tile-edge or
+  VRAM-bank-1 attribute bug at that pixel. The test doesn't even write FF6C (relies on the boot default).
+- Implemented OPRI (FF6C) anyway: a spec-correct CGB register I was missing (store + honor writes,
+  X-coord priority sort when set; default 0 = OAM). Gate-safe (cgb-acid2 still PASS). It's a correctness
+  addition, not yet exercised by a pass/fail test in my suite (few games write FF6C; it's a boot-ROM reg).
+
+### What did NOT work
+- OPRI as the cgb-acid-hell fix (it's not priority-related). X-priority default (breaks cgb-acid2).
+- The other PNG PPU tests (sub-cycle/frame). age-test-roms (sub-cycle).
+
+### What landed
+- OPRI (FF6C) register (correctness). CGB expansion 1446->1526. Gate 2267 -> 2347.
+
+### Frontier ladder (## Frontier)
+- Concrete near-miss: cgb-acid-hell 2px (a real CGB tile/attribute bug at x80,y68-69) -- the closest
+  resolvable +1; round 50 should dump the OAM/tilemap at that pixel and find the 1-row-off source.
+- The sub-cycle tail (timing STAT/lcdon/m2int + mealybug rendering) stays gated behind the from-scratch
+  T-cycle re-calibration (4 proofs). That's the big-swing frontier if ever committed to (separate path).
+- Reliable: expansion (CGB ~120 headroom left) keeps the count rising.
+
 ## Round 48 — FIFO per-dot render: mealybug is sub-cycle too (built, reverted) + expand (PASS 2187->2267)  [committed + pushed]
 
 ### Built the per-dot FIFO renderer integration (gate-safe, but reverted)

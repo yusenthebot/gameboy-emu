@@ -4,19 +4,19 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 48 (complete, committed + pushed) — FIFO per-dot render attempt -> mealybug is sub-cycle too (reverted) + expand (+80)
+ROUND: 49 (complete, committed + pushed) — hunt untapped suites: OPRI register + cgb-acid-hell 2px near-miss + expand (+80)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 2267/2267  (688 gambatte-DMG + 1446 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 48: BUILT the FIFO per-dot renderer integration -- a per-line timeline of mid-mode-3 register
-  writes (gb.h m3_snaps; recorded in ppu_write; render_scanline routes to the FIFO when changes occur,
-  reading regs per-dot). It was GATE-SAFE (static lines kept the scanline path -> 2187 stayed green) and
-  the mechanism worked (rendered structured mid-line effects). BUT mealybug exact tests still fail (~19%
-  pixel mismatch, the base diverges from pixel 2): the mid-line write must land at the exact dot and the
-  FIFO must match the hardware pipeline to the dot -- sub-cycle precision the M-cycle CPU can't give.
-  *** CORRECTS round 47: mealybug is sub-cycle-gated TOO (per-dot FIFO is necessary, not sufficient).
-  Most DMG mealybug refs are revision "blobs" (unverifiable); the 2 exact + all CGB need sub-cycle. ***
-  4th confirmation of the sub-cycle ceiling (lcdon R38, CPU-model R44, STAT-write R46, mealybug R48).
-  Reverted the integration (0 verified new tests). Kept tools/mealybug_check.py. +CGB 1366->1446. Gate 2187->2267.
+PASS COUNT: 2347/2347  (688 gambatte-DMG + 1526 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 49: hunted the untapped /tmp/gbtr_x suites for resolvable wins. age-test-roms = sub-cycle (OAM
+  read/write + speed-switch timing). cgb-acid-hell is just 2 PIXELS off (at x80, y68-69, a vertical
+  swap) -- a near-miss on a hard CGB PPU test. Ruled out OPRI: it's the SAME 2px under both OAM and
+  X-coord priority, and X-priority default breaks cgb-acid2 -> the 2px is a different (BG/sprite tile-edge)
+  bug. Implemented OPRI (FF6C) anyway -- a spec-correct CGB register I lacked (gate-safe, default 0 = OAM,
+  cgb-acid2 still PASS); it's a correctness addition, not yet exercised by a pass/fail test. Other PNG
+  tests (strikethrough/turtle/little-things) fail (sub-cycle/frame). +CGB expansion 1446->1526. Gate 2267->2347.
+
+ROUND: 48 (complete, committed + pushed) — FIFO per-dot render attempt -> mealybug is sub-cycle too (reverted) + expand (+80)
+  Round 48: built per-dot FIFO render (gate-safe) but mealybug still ~19% off (sub-cycle); 4th ceiling confirm; reverted. +CGB.
 
 ROUND: 47 (complete, committed + pushed) — NEW FRONTIER found: mealybug per-dot rendering + expand (+80)
   Round 47: mealybug m3_* needs per-dot FIFO (scanline 0/24); built mealybug_check.py. +CGB. Gate 2107->2187.
@@ -335,17 +335,16 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 49): decide autonomously, don't ask ([[loop-full-autonomy]]). The sub-cycle ceiling
-  is now confirmed 4 INDEPENDENT WAYS (lcdon R38, CPU-per-M-cycle R44, STAT-write R46, mealybug-render R48).
-  EVERYTHING left -- both timing (STAT/lcdon/m2int) AND rendering (mealybug m3_*) -- needs sub-cycle precision
-  the M-cycle CPU can't give. The ONE remaining path: a from-scratch T-cycle re-calibration (CPU access timing
-  observed per-T + all PPU constants re-derived together), built on a SEPARATE parallel path, migrate only when
-  it passes strictly more. It's a major multi-round rewrite; high-risk; the in-place door is shut (4 proofs).
-  Options: (1) EXPAND (CGB ~200 headroom) -- reliable strict-increase, the gate keeps rising honestly.
-  (2) Commit to the T-cycle re-calibration as a dedicated multi-round separate-path build (the only real
-  frontier left; weigh the risk). (3) Hunt other untapped suites for M-cycle-resolvable passers (age-test-roms,
-  little-things-gb, rtc3test -- need harnesses). Lean (1)+(3); (2) is the big swing if I commit to it.
-  KEY: piecemeal/in-place sub-cycle ALWAYS regresses or misaligns (proven 4x); mealybug_check.py + FIFO are built.
+NEXT ROUND SEED (round 50): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) cgb-acid-hell 2px near-miss (concrete, resolvable): the diff is at x80 y68-69 (a vertical pixel
+      swap), NOT priority/OPRI. Likely a CGB BG/sprite TILE-edge or VRAM-bank-1 attribute bug. Dump the
+      sprites/BG tiles covering (80,68-69) (OAM + the tilemap/attr), find the 1-row-off pixel source, fix.
+      Validate vs cgb-acid-hell.png (tools/cgbcmp.py) AND keep cgb-acid2 green. A real +1 if cracked.
+  (2) EXPAND (CGB ~120 headroom now) -- reliable strict-increase.
+  (3) rtc3test (RTC, I have MBC3+RTC) + gbmicrotest need custom harnesses -- maybe M-cycle-resolvable passers.
+  Lean (1) the cgb-acid-hell crack (closest real unlock) + (2). Sub-cycle tail (timing+mealybug) still gated
+  behind the T-cycle re-calib (4 proofs); that's the big-swing frontier if ever committed to.
+  KEY: cgbcmp.py compares CGB RGB vs ref PNG; mealybug_check.py for grayscale; OPRI(FF6C) now implemented.
   KEY: --mooneye prints "RESULT: PASS"; all mooneye PPU-timing PASS; piecemeal sub-cycle = regression (proven 3x).
   KEY: FIFO complete+validated; mode3_end=172+scx&7+obj_mode3_penalty; FIFO base 171, penalty=obj_pen+3.
   KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.

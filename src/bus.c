@@ -153,6 +153,7 @@ u8 bus_read(GB *gb, u16 addr) {
             case 0xFF69: return gb->cgb ? gb->bgpal[gb->bcps & 0x3F] : 0xFF;
             case 0xFF6A: return gb->cgb ? gb->ocps : 0xFF;               /* OCPS */
             case 0xFF6B: return gb->cgb ? gb->objpal[gb->ocps & 0x3F] : 0xFF;
+            case 0xFF6C: return gb->cgb ? (gb->opri | 0xFE) : 0xFF;       /* OPRI */
             default:
                 return gb->io[addr - 0xFF00] | HWIO_OR[addr - 0xFF00];
         }
@@ -207,6 +208,7 @@ void bus_write(GB *gb, u16 addr, u8 val) {
                 gb->objpal[gb->ocps & 0x3F] = val;
                 if (gb->ocps & 0x80) gb->ocps = 0x80 | ((gb->ocps + 1) & 0x3F);
             } return;
+            case 0xFF6C: if (gb->cgb) gb->opri = val & 1; return;        /* OPRI */
             default:
                 gb->io[addr - 0xFF00] = val; return;
         }

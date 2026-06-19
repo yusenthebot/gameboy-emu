@@ -466,6 +466,7 @@ void cpu_init_postboot(GB *g) {
     g->lcdc = 0x91; g->stat = 0; g->ly = 0; g->lyc = 0;
     g->scy = 0; g->scx = 0; g->wy = 0; g->wx = 0;
     g->bgp = 0xFC; g->obp0 = 0xFF; g->obp1 = 0xFF;
+    g->opri = 0;                       /* CGB boot default: OBJ priority by OAM index */
     g->ppu_dot = 0; g->mode = 2; g->win_line = 0;
     g->dma_pos = 160; g->dma_running = false; g->dma_start = 0;
     g->io[0x00] = 0x00;            /* JOYP post-boot reads 0xCF */
