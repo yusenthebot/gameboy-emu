@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-119%2F119%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-122%2F122%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -32,7 +32,7 @@ sub-instruction timing tests.
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **119/119 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **122/122 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -147,7 +147,7 @@ make                                  # builds ./gbemu
 ./gbemu roms/mooneye/acceptance/timer/tim00.gb --mooneye
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 119/119
+./tools/run_tests.sh                  # -> PASS: 122/122
 ```
 
 ## How tests are verified (no "looks right")

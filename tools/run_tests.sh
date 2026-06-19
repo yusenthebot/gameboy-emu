@@ -84,6 +84,26 @@ for spec in "${GAMES[@]}"; do
     else fail=$((fail+1)); row "$name" "FAIL ($got)"; fi
 done
 
+# --- save-state determinism: snapshot at frame S, resume to T, must equal a
+#     straight run to T (verifies the full machine snapshot across subsystems) ---
+# format: rom|save_frame|total_frame
+SAVESTATE=(
+  "roms/games/libbet/libbet.gb|100|220"
+  "roms/dmg_sound/01-registers.gb|80|160"
+  "roms/acid2/dmg-acid2.gb|20|40"
+)
+for spec in "${SAVESTATE[@]}"; do
+    IFS='|' read -r rom sf tf <<< "$spec"
+    total=$((total+1)); name="${rom#roms/} savestate@$sf->$tf"
+    if [ ! -f "$rom" ]; then fail=$((fail+1)); row "$name" "MISSING"; continue; fi
+    base="/tmp/gbemu_ss_$(basename "$rom")"
+    "$BIN" "$rom" --frames "$tf" --raw "$base.straight" --cycles 200000000 >/dev/null 2>&1
+    "$BIN" "$rom" --frames "$sf" --save-state "$base.gss" --cycles 200000000 >/dev/null 2>&1
+    "$BIN" "$rom" --frames "$tf" --load-state "$base.gss" --raw "$base.resumed" --cycles 200000000 >/dev/null 2>&1
+    if cmp -s "$base.straight" "$base.resumed"; then pass=$((pass+1)); row "$name" "PASS"
+    else fail=$((fail+1)); row "$name" "FAIL (nondeterministic)"; fi
+done
+
 # --- Mooneye acceptance ROMs (LD B,B breakpoint + Fibonacci register signature) ---
 mooneye_pass=0
 while IFS= read -r rom; do

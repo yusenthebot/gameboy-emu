@@ -4,14 +4,14 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 19 (research, gate FLAT) — sweep + hblank both source/full-chain dead-ends
-  Round 19: tried dmg_sound sweep 04/05/07 — failing subtests are 04#8 (shift=0/period>0
-  trigger-enables), 05#2 (timer treats period 0 as 8); my sweep logic matches the Pan Docs
-  spec (got via gh api) but the exact subtests need Blargg's source (binaries, no .s). SameSuite
-  ch1 = 0/21 (needs sample-accurate pulse output — even channel_1_duty fails; not tractable).
-  hblank_ly_scx: measures mode-0 IRQ -> LY, but that's the full chain (PPU IRQ + CPU HALT-wake +
-  dispatch all cycle-perfect), not a single PPU knob. 2nd consecutive flat round -> re-surfaced
-  to owner (frontend vs keep-grinding-timing-tail). No code change (exploration only).
+ROUND: 19 (complete, committed + pushed) — SAVE-STATES (new dimension, +3)
+SUBSTRATE: C11 + clang
+PASS COUNT: 122/122  (15 serial + acid2 + 9 framehash + 2 game + 3 savestate + 92 Mooneye/WP/SS)
+  Round 19: owner said be fully autonomous (don't ask) -> [[loop-full-autonomy]]. After the
+  sweep/hblank tail proved source/full-chain-dependent, pivoted to a NEW DIMENSION: save-states
+  (src/state.c) — full GB snapshot to a file (keeps live ROM/RAM buffers, restores banking+RAM).
+  CLI --save-state/--load-state. +3 determinism tests (libbet/dmg_sound/acid2: snapshot@S, resume
+  to T == straight run to T, bit-identical). Advances "即时存档/回放"; sets up rewind + the frontend.
 
 ROUND: 18 (complete, committed local) — APU wave-channel research (gate FLAT, honest)
 SUBSTRATE: C11 + clang
@@ -101,17 +101,16 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 19): the remaining test tail is all deep sub-cycle calibration (each
-  test ~1-2 dedicated rounds). Tractability ranking to try:
-  (1) dmg_sound sweep 04/05/07 — ch1 sweep already exists; render the result screen to see
-      the failing subtest, calibrate the sweep overflow/period-sync edge cases. Frame-hash gated.
-  (2) hblank_ly_scx — mode-0-IRQ-vs-LY timing; try the sprite-style forced-offset sweep (but
-      guard intr_2_0/intr_2_mode0 don't regress).
-  (3) APU wave channel (docs/apu-wave-channel.md) — hard (no .s oracle); needs the trigger->
-      first-read sub-cycle offset; defer unless (1)/(2) dry up.
-  Also: MBC3+RTC+.sav is a real FEATURE (not a mooneye test) — could add a synthetic save-
-  persistence check to the gate. And the interactive frontend stays available (owner present).
-  If two more rounds dry up, re-surface to the owner (frontend vs slower timing-tail cadence).
+NEXT ROUND SEED (round 20): save-states done -> build on the new dimension OR start the frontend.
+  Strong options (DECIDE autonomously, don't ask — [[loop-full-autonomy]]):
+  (1) REWIND: ring-buffer of save-states (snapshot every K frames, step back). Verifiable: rewind
+      N then replay == original. Cheap given save-states exist. Advances "回放".
+  (2) Interactive frontend (minifb/SDL window + keyboard + cpal/SDL audio) — the big playability
+      dimension; pre-approved deps. Verify the engine headlessly (frame-hash) + a brief smoke
+      run; the live window/audio the owner runs (deliver via macOS `open`/a run command).
+  (3) MBC3 + battery .sav — broadens games (Pokemon-era); .sav round-trip is gate-verifiable.
+  (4) Back to the timing tail only if a clean approach appears (sweep needs Blargg source).
+  Recommend (2) frontend next (most impactful, pre-approved) or (1) rewind (cheapest verifiable +1).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

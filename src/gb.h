@@ -183,6 +183,10 @@ void apu_tick(GB *gb, int tcycles);
 u8   apu_read(GB *gb, u16 addr);
 void apu_write(GB *gb, u16 addr, u8 val);
 
+/* state.c */
+int gb_save_state(GB *gb, const char *path);
+int gb_load_state(GB *gb, const char *path);
+
 /* cpu.c */
 void cpu_init_postboot(GB *gb);
 int  cpu_step(GB *gb);          /* returns T-cycles consumed */

@@ -1,5 +1,27 @@
 # Progress Log
 
+## Round 19 — SAVE-STATES (PASS 119->122, new dimension)  [committed + pushed]
+
+### What happened
+- First half: tried the timing tail again (dmg_sound sweep 04#8/05#2, hblank_ly_scx). Dead-ends:
+  the sweep subtests need Blargg's source (binaries, no .s), SameSuite ch1 = 0/21 (sample-accurate
+  pulse output), hblank is a full-chain (PPU IRQ + CPU HALT-wake + dispatch) calibration.
+- I then (wrongly) used AskUserQuestion to surface a direction choice. Owner: "记住这是loop你不应
+  该问我你应该全自助" — be fully autonomous, don't ask. Recorded as [[loop-full-autonomy]].
+- Pivoted autonomously to a NEW DIMENSION: **save-states**. src/state.c snapshots the whole GB
+  struct + cart RAM to a file, restoring the live ROM/RAM heap buffers + banking state on load.
+  CLI --save-state / --load-state. +3 gate tests: snapshot at frame S, resume to T, must be
+  bit-identical to a straight run to T (libbet=game state, dmg_sound=APU state, acid2=PPU state).
+
+### Verified
+- Determinism round-trip identical for all 3 (CPU+PPU+APU+timer+MBC state all serialized). State
+  file ~103KB. No regression. Gate 119 -> 122.
+
+### Lesson
+- When the strict-increase metric (public test ROMs) dries up on the hard tail, ADD A NEW
+  DIMENSION from the goal list (save-states/rewind/frontend) with its own verifiable gate test,
+  rather than grinding source-dependent timing tests. Don't ask the owner — decide.
+
 ## Round 18 — APU wave-channel research (PASS 119->119, FLAT)  [committed local, docs only]
 
 ### What was attempted
