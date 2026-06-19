@@ -6,7 +6,7 @@
  * works under SDL_VIDEODRIVER=dummy) drives the same loop for verification.
  *
  *   Controls: arrows = D-pad · Z = A · X = B · Enter = Start · Shift = Select
- *             F5 = save state (quick.gss) · F9 = load · Esc = quit
+ *             F5 = save state (quick.gss) · F9 = load · Backspace = rewind · Esc = quit
  */
 #include "gb.h"
 #include <SDL.h>
@@ -79,6 +79,13 @@ int main(int argc, char **argv) {
                       SDL_GetError());
     u32 *pix = malloc(LCD_W * LCD_H * sizeof(u32));
 
+    /* rewind ring: snapshot every REW_EVERY frames; hold Backspace to step back. */
+    #define REW_SLOTS 120
+    #define REW_EVERY 6
+    size_t snap_sz = gb_snapshot_size(&gb);
+    u8 *rewind_ring = malloc(snap_sz * REW_SLOTS);
+    int rw_head = 0, rw_count = 0;
+
     bool running = true;
     int rendered = 0;
     double next = SDL_GetTicks();
@@ -103,17 +110,31 @@ int main(int argc, char **argv) {
         }
         gb.buttons = read_keys();
 
-        /* run exactly one frame */
-        u64 f = gb.frame_count;
-        while (gb.frame_count == f) cpu_step(&gb);
-        rendered++;
+        bool rewinding = SDL_GetKeyboardState(NULL)[SDL_SCANCODE_BACKSPACE];
+        if (rewinding && rw_count > 0) {
+            /* step back to the previous snapshot (fast-rewinds while held) */
+            rw_head = (rw_head - 1 + REW_SLOTS) % REW_SLOTS;
+            gb_restore(&gb, rewind_ring + (size_t)rw_head * snap_sz);
+            rw_count--;
+            rendered++;
+        } else {
+            /* run exactly one frame */
+            u64 f = gb.frame_count;
+            while (gb.frame_count == f) cpu_step(&gb);
+            rendered++;
 
-        /* push this frame's audio, dropping if the queue is backing up (>~0.2s) */
-        if (adev) {
-            i16 sbuf[2048];
-            int n = apu_drain_samples(&gb, sbuf, 1024);
-            if (n && SDL_GetQueuedAudioSize(adev) < APU_SAMPLE_RATE * 2 * sizeof(i16) / 5)
-                SDL_QueueAudio(adev, sbuf, (Uint32)n * 2 * sizeof(i16));
+            if (rendered % REW_EVERY == 0) {            /* capture a rewind snapshot */
+                gb_snapshot(&gb, rewind_ring + (size_t)rw_head * snap_sz);
+                rw_head = (rw_head + 1) % REW_SLOTS;
+                if (rw_count < REW_SLOTS) rw_count++;
+            }
+            /* push this frame's audio, dropping if the queue backs up (>~0.2s) */
+            if (adev) {
+                i16 sbuf[2048];
+                int n = apu_drain_samples(&gb, sbuf, 1024);
+                if (n && SDL_GetQueuedAudioSize(adev) < APU_SAMPLE_RATE * 2 * sizeof(i16) / 5)
+                    SDL_QueueAudio(adev, sbuf, (Uint32)n * 2 * sizeof(i16));
+            }
         }
 
         if (tex) {
@@ -137,6 +158,7 @@ int main(int argc, char **argv) {
     }
 
     free(pix);
+    free(rewind_ring);
     if (adev) SDL_CloseAudioDevice(adev);
     SDL_DestroyTexture(tex);
     SDL_DestroyRenderer(ren);

@@ -4,9 +4,16 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 23 (complete, committed + pushed) — REWIND (回放) — GOAL LIST COMPLETE (+1)
+SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay SDL2 frontend: video+audio+input+save+rewind)
+PASS COUNT: 126/126  (15 serial + acid2 + 9 fh + 2 game + 3 ss + 1 audio + 1 front + 1 dbg + 1 rewind + 92)
+  Round 23: in-memory snapshot/restore (state.c: gb_snapshot/gb_restore/gb_snapshot_size) + a
+  rewind ring in gbplay (hold Backspace -> step back ~9s; capture every 6 frames, 120 slots).
+  +1 gate test (--rewind-selftest): snapshot round-trip exact + rewind-then-replay bit-identical.
+  Completes 回放 — the LAST unchecked item on the user's stated goal list. gbplay frame-matches engine.
+
 ROUND: 22 (complete, committed + pushed) — CLI DEBUGGER + SM83 DISASSEMBLER (+1)
-SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay SDL2 frontend with audio)
-PASS COUNT: 125/125  (15 serial + acid2 + 9 fh + 2 game + 3 ss + 1 audio + 1 frontend + 1 debugger + 92)
+  Round 22: src/disasm.c + src/debug.c (--debug REPL); +1 scripted-session gate test.
   Round 22: src/disasm.c (full SM83 disassembler — algorithmic LD r,r'/ALU/CB blocks + a table
   for the rest, operand decode) + src/debug.c (--debug REPL: regs/step/break/cont/mem/disasm/quit).
   +1 gate test: a scripted session (break/cont/disasm/mem/step) hashes to a fixed deterministic
@@ -120,19 +127,21 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-GOAL-LIST STATUS: CPU+timing ✓, scanline PPU+acid2 ✓, Mooneye/WP/SameSuite (partial), MBC ✓,
-  存档 (save-states) ✓, APU 声音 ✓, FIFO sprite penalty ✓, 调试器 ✓, 即时存档 ✓. Remaining from
-  the user's list: 回放 (rewind), and the long timing tail (sweep/wave/hblank/lcdon — source/full
-  -chain-dependent). Plus broadening: MBC3+RTC, CGB mode.
+GOAL-LIST STATUS: ALL STATED ITEMS DONE ✓ — CPU+timing, scanline PPU+acid2, Mooneye/WP/SameSuite
+  (partial, the hard tail is source/sub-cycle dependent), MBC, 存档, APU 声音, FIFO sprite penalty,
+  STAT quirks, 调试器, 即时存档, 回放. The user's explicit goal list is fully ticked. Further work =
+  depth (more timing-tail tests) or breadth (MBC3+RTC, CGB color mode, more games).
 
-NEXT ROUND SEED (round 23): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) REWIND (回放, last unticked goal-list item): in-memory ring of snapshots (add gb_snapshot/
-      gb_restore to state.c), hold a key in gbplay to step back; gate test = capture ring, rewind,
-      replay == straight. Completes the user's explicit goal list.
-  (2) MBC3+RTC+battery .sav — broadens games (Pokemon-era); .sav round-trip gate-verifiable.
-  (3) Audio polish (high-pass DC filter) or debugger polish (watchpoints, run-to-vblank).
+NEXT ROUND SEED (round 24): the stated goal list is COMPLETE. Keep evolving (decide autonomously,
+  don't ask — [[loop-full-autonomy]]). Best BREADTH/DEPTH options:
+  (1) MBC3 + RTC + battery .sav — biggest game-compat win (Pokemon Gold/Silver, Zelda-era). MBC3
+      banking + the RTC registers + .sav persistence; gate-verifiable via a .sav round-trip + real
+      MBC3 game frame-hash if one can be fetched.
+  (2) CGB (Game Boy Color) mode — a large new dimension: CGB palettes/VRAM banks/double-speed/HDMA;
+      would unlock the CGB test suites. Big but high-value (the goal said "DMG/CGB").
+  (3) Battery .sav for the existing MBCs (MBC1/2/5) — load/save cart RAM; verify round-trip.
   (4) Timing tail only if a clean approach appears (sweep needs Blargg src; wave needs sub-cycle).
-  Lean (1) rewind — it's the last unchecked item on the user's stated goal list.
+  Lean (1) MBC3+.sav (broadens real-game support + finishes "存档" with battery saves) or (3) .sav.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

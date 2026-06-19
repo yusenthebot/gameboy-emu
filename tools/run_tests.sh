@@ -104,6 +104,12 @@ for spec in "${SAVESTATE[@]}"; do
     else fail=$((fail+1)); row "$name" "FAIL (nondeterministic)"; fi
 done
 
+# --- rewind: in-memory snapshot round-trip + rewind/replay must be bit-identical ---
+total=$((total+1))
+if "$BIN" roms/games/libbet/libbet.gb --rewind-selftest >/dev/null 2>&1; then
+    pass=$((pass+1)); row "rewind snapshot round-trip + replay" "PASS"
+else fail=$((fail+1)); row "rewind snapshot round-trip + replay" "FAIL"; fi
+
 # --- debugger: a scripted session (disasm/break/cont/mem/step) must produce
 #     the exact deterministic output (guards the disassembler + debugger) ---
 total=$((total+1))

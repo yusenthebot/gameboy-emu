@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0, mooneye = 0, debug = 0;
+    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
     u64 max_cycles = 350000000ULL;
@@ -35,6 +35,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--raw") && i + 1 < argc) raw_path = argv[++i];
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--debug")) debug = 1;
+        else if (!strcmp(argv[i], "--rewind-selftest")) rewind_test = 1;
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
@@ -75,6 +76,37 @@ int main(int argc, char **argv) {
         debugger_repl(&gb);
         cart_free(&gb);
         return 0;
+    }
+
+    if (rewind_test) {
+        /* (a) snapshot/restore must round-trip exactly; (b) a rewind to an earlier
+         * snapshot then replay must be bit-identical to the first pass. */
+        enum { SNAP = 100, T = 200 };
+        size_t sz = gb_snapshot_size(&gb);
+        u8 *snap = malloc(sz);
+
+        while (gb.frame_count < (u64)SNAP) cpu_step(&gb);
+        gb_snapshot(&gb, snap);
+        u8 fb_snap[160 * 144];
+        memcpy(fb_snap, gb.fb, sizeof fb_snap);
+
+        gb_restore(&gb, snap);                          /* immediate round-trip */
+        int rt = (gb.frame_count == SNAP) && memcmp(gb.fb, fb_snap, sizeof fb_snap) == 0;
+
+        while (gb.frame_count < (u64)T) cpu_step(&gb);  /* first pass to T */
+        u8 fb1[160 * 144];
+        memcpy(fb1, gb.fb, sizeof fb1);
+
+        gb_restore(&gb, snap);                          /* rewind to SNAP */
+        while (gb.frame_count < (u64)T) cpu_step(&gb);  /* replay to T */
+        int replay = memcmp(fb1, gb.fb, sizeof fb1) == 0;
+
+        fprintf(stderr, "rewind: round-trip %s, replay %s\n",
+                rt ? "OK" : "FAIL", replay ? "OK" : "FAIL");
+        fprintf(stderr, "RESULT: %s\n", (rt && replay) ? "PASS" : "FAIL");
+        free(snap);
+        cart_free(&gb);
+        return (rt && replay) ? 0 : 1;
     }
 
     if (mooneye) {

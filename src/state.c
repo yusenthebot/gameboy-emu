@@ -8,6 +8,7 @@
  */
 #include "gb.h"
 #include <stdio.h>
+#include <string.h>
 
 #define STATE_MAGIC   0x53534247u   /* 'GBSS' little-endian */
 #define STATE_VERSION 1u
@@ -24,6 +25,25 @@ int gb_save_state(GB *g, const char *path) {
     if (ok && ramsz && g->cart.ram) ok = fwrite(g->cart.ram, 1, ramsz, f) == ramsz;
     fclose(f);
     return ok ? 0 : -2;
+}
+
+/* In-memory snapshot/restore (no file I/O) — the basis for the rewind ring.
+ * Same contract as save/load: the ROM/RAM heap buffers stay live; only the
+ * machine state + cart RAM contents move. */
+size_t gb_snapshot_size(GB *g) { return sizeof(GB) + g->cart.ram_size; }
+
+void gb_snapshot(GB *g, u8 *buf) {
+    memcpy(buf, g, sizeof(GB));
+    if (g->cart.ram_size && g->cart.ram) memcpy(buf + sizeof(GB), g->cart.ram, g->cart.ram_size);
+}
+
+void gb_restore(GB *g, const u8 *buf) {
+    u8 *rom = g->cart.rom, *ram = g->cart.ram;
+    size_t rom_size = g->cart.rom_size, ram_size = g->cart.ram_size;
+    memcpy(g, buf, sizeof(GB));
+    g->cart.rom = rom; g->cart.rom_size = rom_size;
+    g->cart.ram = ram; g->cart.ram_size = ram_size;
+    if (ram_size && ram) memcpy(ram, buf + sizeof(GB), ram_size);
 }
 
 int gb_load_state(GB *g, const char *path) {

@@ -197,6 +197,9 @@ int  apu_drain_samples(GB *gb, i16 *out, int max_pairs);  /* returns stereo pair
 /* state.c */
 int gb_save_state(GB *gb, const char *path);
 int gb_load_state(GB *gb, const char *path);
+size_t gb_snapshot_size(GB *gb);
+void   gb_snapshot(GB *gb, u8 *buf);     /* in-memory snapshot (for the rewind ring) */
+void   gb_restore(GB *gb, const u8 *buf);
 
 /* disasm.c / debug.c */
 int  disasm(GB *gb, u16 addr, char *buf, size_t sz);  /* -> instruction length */

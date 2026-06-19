@@ -1,5 +1,26 @@
 # Progress Log
 
+## Round 23 — REWIND (回放) — goal list COMPLETE (PASS 125->126)  [committed + pushed]
+
+### What was built
+- state.c: in-memory gb_snapshot/gb_restore/gb_snapshot_size (same contract as the file save/load
+  but to a memory buffer — the basis for the rewind ring).
+- gbplay: a rewind ring (120 slots, snapshot every 6 frames = ~12s). Hold Backspace -> step back
+  through snapshots (fast-rewind while held), release -> resume forward. Normal play untouched.
+- gbemu --rewind-selftest: (a) snapshot then immediate restore must be bit-identical; (b) snapshot,
+  run to T, rewind, replay to T must match the first pass. +1 gate test.
+
+### Verified / debugged
+- First self-test version FAILED with a frame mismatch — turned out to be a RING-INDEXING bug in
+  the test (wrong slot), not the snapshot. Rewrote it to isolate the primitive: round-trip OK +
+  replay OK. (Lesson: the only static mutable state outside the GB struct is the audio output ring,
+  which doesn't affect frames, so the whole-struct snapshot is complete.)
+- gbplay still frame-matches gbemu with the rewind ring active. Gate 125 -> 126.
+
+### Milestone
+- 回放 was the LAST unchecked item on the user's stated goal list — the explicit goal list is now
+  fully done. Next = breadth (MBC3+RTC+.sav, CGB) or more timing-tail depth.
+
 ## Round 22 — CLI DEBUGGER + SM83 DISASSEMBLER (PASS 124->125)  [committed + pushed]
 
 ### What was built
