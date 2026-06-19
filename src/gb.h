@@ -102,7 +102,7 @@ typedef struct GB {
 
     /* Memory regions */
     u8 vram[0x4000];        /* 2 banks (CGB); DMG uses bank 0 only */
-    u8 wram[0x2000];
+    u8 wram[0x8000];        /* 8 banks (CGB SVBK); DMG uses banks 0-1 (8KB) */
     u8 oam[0xA0];
     u8 hram[0x7F];
     u8 io[0x80];            /* 0xFF00..0xFF7F raw store for simple regs */
@@ -140,9 +140,16 @@ typedef struct GB {
     /* CGB (Game Boy Color) */
     bool cgb;               /* CGB mode (cart header 0x143 = 0x80/0xC0) */
     u8  vbk;                /* VRAM bank select (FF4F bit 0) */
+    u8  svbk;               /* WRAM bank select (FF70 bits 0-2) */
+    u8  key1;               /* double-speed prepare/status (FF4D) */
     u8  bcps, ocps;         /* BG/OBJ palette index + auto-increment (FF68/FF6A) */
     u8  bgpal[64];          /* 8 BG palettes x 4 colors x RGB555 (FF69) */
     u8  objpal[64];         /* 8 OBJ palettes x 4 colors x RGB555 (FF6B) */
+
+    /* CGB VRAM DMA / HDMA (FF51-FF55) */
+    u16 hdma_src, hdma_dst; /* current source / VRAM-relative dest */
+    u8  hdma_len;           /* remaining 0x10-byte blocks - 1 (0x7F = idle) */
+    bool hdma_active;       /* an HBlank-driven transfer is in progress */
 
     /* OAM DMA (cycle-accurate: 160 M-cycles, OAM locked during transfer) */
     u8  dma_reg;            /* last value written to FF46 */
@@ -175,6 +182,7 @@ int  cart_load_battery(GB *gb, const char *path);
 /* bus.c */
 u8   bus_read(GB *gb, u16 addr);
 void bus_write(GB *gb, u16 addr, u8 val);
+void hdma_hblank_step(GB *gb);          /* CGB HBlank VRAM DMA: one block per HBlank */
 void dma_tick(GB *gb, int tcycles);
 
 /* timer.c */

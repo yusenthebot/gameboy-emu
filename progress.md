@@ -1,5 +1,30 @@
 # Progress Log
 
+## Round 27 — CGB WRAM banking (SVBK) + VRAM DMA (HDMA) (PASS 130->132)  [committed + pushed]
+
+### What was built
+- WRAM banking: wram 8KB -> 32KB (8 banks). bus.c wram_off() maps 0xC000-0xCFFF to the fixed
+  bank 0 and 0xD000-0xDFFF to the SVBK-selected bank (1-7; 0 reads as 1). Echo RAM follows. DMG
+  is unchanged (always bank 1 for 0xDxxx = linear 8KB).
+- VRAM DMA (HDMA, FF51-55): general-purpose mode copies all (len+1) 0x10-byte blocks at once;
+  HBlank mode copies one block per HBlank, stepped from the PPU at the mode-3->0 transition.
+  Writing bit7=0 mid-HBlank stops an active transfer. FF55 read gives remaining blocks / 0xFF done.
+- KEY1 (FF4D) double-speed register: prepare bit read/write (the actual speed switch is deferred).
+
+### Verified
+- +CGB WRAM banking selftest (--wram-selftest): 7 banks hold distinct data, 0xCxxx unaffected by
+  SVBK, SVBK reads back with bits 3-7 set. +HDMA selftest (--hdma-selftest): general-purpose and
+  HBlank-stepped transfers both land the source pattern in VRAM; FF55 status tracks correctly.
+- Gate 130 -> 132, no regression (DMG suite, cgb-acid2 0/23040, save-states all still green; the
+  wram/hdma struct growth flows through the save-state snapshot automatically).
+
+### What did NOT work / deferred
+- same-suite dma/* tests (gdma_addr_mask, hdma_lcd_off, gbc_dma_cont) still fail (66 signature).
+  They need CPU-halt-during-GDMA timing, LCD-off HBlank-HDMA semantics (transfer with no HBlanks),
+  and exact addr wrap. Deferred to an HDMA-precision round, likely paired with double-speed.
+- Double-speed switch (STOP + KEY1 bit7 toggle + 2x CPU timing) deferred — it's a whole-tick-loop
+  change; this round added only the register so reads/writes + boot state are correct.
+
 ## Round 26 — CGB BOOT STATE + --cgb hardware flag (PASS 129->130)  [committed + pushed]
 
 ### What was built

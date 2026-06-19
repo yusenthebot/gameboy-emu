@@ -335,9 +335,12 @@ void ppu_tick(GB *g, int tcycles) {
             /* Entering mode 3: the OAM scan is done, so the object list (and its
              * mode-3 penalty) for this line is fixed. */
             if (mode == 3) g->mode3_obj_pen = obj_mode3_penalty(g, ly);
-            /* On mode-3 -> 0 transition, render the just-finished line. */
-            if (g->mode == 3 && mode == 0 && ly < VBLANK_LINE)
+            /* On mode-3 -> 0 transition, render the just-finished line and step
+             * any HBlank-driven VRAM DMA (one 0x10-byte block per HBlank). */
+            if (g->mode == 3 && mode == 0 && ly < VBLANK_LINE) {
                 render_scanline(g, ly);
+                if (g->cgb) hdma_hblank_step(g);
+            }
             set_mode(g, mode);
             if (mode == 1) {
                 cpu_request_interrupt(g, INT_VBLANK);

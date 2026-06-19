@@ -62,13 +62,57 @@ static void dma_write(GB *gb, u8 val) {
                                * (calibrated to Mooneye oam_dma_timing) */
 }
 
+/* WRAM offset for a 0xC000..0xDFFF address: bank 0 is fixed at 0xCxxx, the
+ * 0xDxxx region is banked via SVBK on CGB (banks 1-7; 0 reads as 1). */
+static inline int wram_off(GB *gb, u16 a) {
+    if (a < 0xD000) return a - 0xC000;
+    int bank = gb->cgb ? ((gb->svbk & 7) ? (gb->svbk & 7) : 1) : 1;
+    return bank * 0x1000 + (a - 0xD000);
+}
+
+/* Copy one 0x10-byte block from main memory to VRAM (current bank). */
+static void hdma_copy_block(GB *gb) {
+    int base = (gb->vbk & 1) * 0x2000;
+    for (int i = 0; i < 0x10; i++)
+        gb->vram[base + ((gb->hdma_dst + i) & 0x1FFF)] = bus_read(gb, gb->hdma_src + i);
+    gb->hdma_src += 0x10;
+    gb->hdma_dst += 0x10;
+}
+
+/* FF55 write: start a VRAM DMA. Bit 7 = mode (0 general / 1 HBlank); bits 0-6 =
+ * block count - 1. General-purpose copies everything at once; HBlank mode copies
+ * one block per HBlank (stepped from the PPU). Writing bit7=0 mid-HBlank stops it. */
+static void hdma_trigger(GB *gb, u8 val) {
+    u16 src = (gb->io[0x51] << 8) | (gb->io[0x52] & 0xF0);
+    u16 dst = 0x8000 | ((gb->io[0x53] & 0x1F) << 8) | (gb->io[0x54] & 0xF0);
+    int blocks = (val & 0x7F) + 1;
+    if (!(val & 0x80)) {                       /* general-purpose (or stop) */
+        if (gb->hdma_active) { gb->hdma_active = false; gb->hdma_len |= 0x80; return; }
+        gb->hdma_src = src; gb->hdma_dst = dst;
+        for (int b = 0; b < blocks; b++) hdma_copy_block(gb);
+        gb->hdma_len = 0xFF;                    /* done */
+    } else {                                   /* HBlank-driven */
+        gb->hdma_src = src; gb->hdma_dst = dst;
+        gb->hdma_len = val & 0x7F;
+        gb->hdma_active = true;
+    }
+}
+
+/* Step an HBlank-mode transfer: one block per HBlank until exhausted. */
+void hdma_hblank_step(GB *gb) {
+    if (!gb->hdma_active) return;
+    hdma_copy_block(gb);
+    if (gb->hdma_len == 0) { gb->hdma_active = false; gb->hdma_len = 0xFF; }
+    else gb->hdma_len--;
+}
+
 u8 bus_read(GB *gb, u16 addr) {
     if (addr < 0x8000) return cart_read(gb, addr);
     if (addr < 0xA000) return ppu_vram_accessible(gb)
         ? gb->vram[(gb->vbk & 1) * 0x2000 + (addr - 0x8000)] : 0xFF;
     if (addr < 0xC000) return cart_read(gb, addr);
-    if (addr < 0xE000) return gb->wram[addr - 0xC000];
-    if (addr < 0xFE00) return gb->wram[addr - 0xE000];   /* echo RAM */
+    if (addr < 0xE000) return gb->wram[wram_off(gb, addr)];
+    if (addr < 0xFE00) return gb->wram[wram_off(gb, addr - 0x2000)];   /* echo RAM */
     if (addr < 0xFEA0)
         return (gb->dma_running || !ppu_oam_accessible(gb)) ? 0xFF : gb->oam[addr - 0xFE00];
     if (addr < 0xFF00) return 0xFF;                       /* unusable */
@@ -85,7 +129,13 @@ u8 bus_read(GB *gb, u16 addr) {
             case 0xFF44: case 0xFF45: case 0xFF47: case 0xFF48:
             case 0xFF49: case 0xFF4A: case 0xFF4B:
                 return ppu_read(gb, addr);
+            case 0xFF4D: return gb->cgb ? (gb->key1 | 0x7E) : 0xFF;      /* KEY1 */
             case 0xFF4F: return gb->cgb ? (gb->vbk | 0xFE) : 0xFF;       /* VBK */
+            case 0xFF51: case 0xFF52: case 0xFF53: case 0xFF54:
+                return 0xFF;                                             /* HDMA1-4 write-only */
+            case 0xFF55: return gb->cgb ? (gb->hdma_active ? (gb->hdma_len & 0x7F)
+                                                           : 0xFF) : 0xFF; /* HDMA5 */
+            case 0xFF70: return gb->cgb ? (gb->svbk | 0xF8) : 0xFF;      /* SVBK */
             case 0xFF68: return gb->cgb ? gb->bcps : 0xFF;               /* BCPS */
             case 0xFF69: return gb->cgb ? gb->bgpal[gb->bcps & 0x3F] : 0xFF;
             case 0xFF6A: return gb->cgb ? gb->ocps : 0xFF;               /* OCPS */
@@ -105,8 +155,8 @@ void bus_write(GB *gb, u16 addr, u8 val) {
         return;
     }
     if (addr < 0xC000) { cart_write(gb, addr, val); return; }
-    if (addr < 0xE000) { gb->wram[addr - 0xC000] = val; return; }
-    if (addr < 0xFE00) { gb->wram[addr - 0xE000] = val; return; }  /* echo */
+    if (addr < 0xE000) { gb->wram[wram_off(gb, addr)] = val; return; }
+    if (addr < 0xFE00) { gb->wram[wram_off(gb, addr - 0x2000)] = val; return; }  /* echo */
     if (addr < 0xFEA0) {
         if (!gb->dma_running && ppu_oam_accessible(gb)) gb->oam[addr - 0xFE00] = val;
         return;
@@ -128,7 +178,12 @@ void bus_write(GB *gb, u16 addr, u8 val) {
             case 0xFF4A: case 0xFF4B:
                 ppu_write(gb, addr, val); return;
             case 0xFF44: return; /* LY is read-only */
+            case 0xFF4D: if (gb->cgb) gb->key1 = (gb->key1 & 0x80) | (val & 1); return; /* KEY1 */
             case 0xFF4F: if (gb->cgb) gb->vbk = val & 1; return;          /* VBK */
+            case 0xFF51: case 0xFF52: case 0xFF53: case 0xFF54:
+                gb->io[addr - 0xFF00] = val; return;                     /* HDMA1-4 latches */
+            case 0xFF55: if (gb->cgb) hdma_trigger(gb, val); return;      /* HDMA5 */
+            case 0xFF70: if (gb->cgb) gb->svbk = val & 7; return;         /* SVBK */
             case 0xFF68: if (gb->cgb) gb->bcps = val; return;             /* BCPS */
             case 0xFF69: if (gb->cgb) {                                   /* BCPD */
                 gb->bgpal[gb->bcps & 0x3F] = val;

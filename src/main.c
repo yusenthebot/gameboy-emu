@@ -25,6 +25,7 @@ int main(int argc, char **argv) {
     }
     const char *path = argv[1];
     int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0;
+    int wram_selftest = 0, hdma_selftest = 0;
     const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
@@ -41,6 +42,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--sav-selftest")) sav_selftest = 1;
         else if (!strcmp(argv[i], "--sav") && i + 1 < argc) sav_path = argv[++i];
         else if (!strcmp(argv[i], "--cgb")) force_cgb = 1;   /* run as CGB hardware */
+        else if (!strcmp(argv[i], "--wram-selftest")) wram_selftest = 1;
+        else if (!strcmp(argv[i], "--hdma-selftest")) hdma_selftest = 1;
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
@@ -97,6 +100,55 @@ int main(int argc, char **argv) {
         int ok = cart_load_battery(&gb, "/tmp/_gbemu_sav_selftest.sav") == 0;
         for (size_t i = 0; ok && i < c->ram_size; i++) if (c->ram[i] != (u8)(i * 7 + 3)) ok = 0;
         if (c->mbc == 3) for (int i = 0; ok && i < 5; i++) if (c->rtc[i] != (u8)(i + 1)) ok = 0;
+        fprintf(stderr, "RESULT: %s\n", ok ? "PASS" : "FAIL");
+        cart_free(&gb);
+        return ok ? 0 : 1;
+    }
+    if (wram_selftest) {
+        /* CGB WRAM banking (SVBK): banks 1-7 each hold distinct data; 0xCxxx is
+         * the fixed bank-0 region (not switched). */
+        gb.cgb = true;
+        int ok = 1;
+        for (int b = 1; b <= 7; b++) {
+            bus_write(&gb, 0xFF70, b);
+            bus_write(&gb, 0xD000, (u8)(0x10 + b));
+            bus_write(&gb, 0xDFFF, (u8)(0x80 + b));
+        }
+        for (int b = 1; b <= 7; b++) {
+            bus_write(&gb, 0xFF70, b);
+            if (bus_read(&gb, 0xD000) != (u8)(0x10 + b)) ok = 0;
+            if (bus_read(&gb, 0xDFFF) != (u8)(0x80 + b)) ok = 0;
+        }
+        bus_write(&gb, 0xFF70, 1); bus_write(&gb, 0xC000, 0xAB);   /* bank-0 region */
+        bus_write(&gb, 0xFF70, 5);
+        if (bus_read(&gb, 0xC000) != 0xAB) ok = 0;                 /* unaffected by SVBK */
+        if (bus_read(&gb, 0xFF70) != (0x05 | 0xF8)) ok = 0;        /* SVBK read-back */
+        fprintf(stderr, "RESULT: %s\n", ok ? "PASS" : "FAIL");
+        cart_free(&gb);
+        return ok ? 0 : 1;
+    }
+    if (hdma_selftest) {
+        /* CGB VRAM DMA: general-purpose copies all blocks at once; HBlank mode
+         * copies one 0x10-byte block per HBlank step. */
+        gb.cgb = true;
+        int ok = 1;
+        bus_write(&gb, 0xFF70, 1);
+        for (int i = 0; i < 0x20; i++) bus_write(&gb, 0xD000 + i, (u8)(i ^ 0x5A));
+        /* general-purpose: src 0xD000 -> VRAM 0x0000, 2 blocks */
+        bus_write(&gb, 0xFF51, 0xD0); bus_write(&gb, 0xFF52, 0x00);
+        bus_write(&gb, 0xFF53, 0x00); bus_write(&gb, 0xFF54, 0x00);
+        bus_write(&gb, 0xFF55, 0x01);
+        for (int i = 0; i < 0x20; i++) if (gb.vram[i] != (u8)(i ^ 0x5A)) ok = 0;
+        if (bus_read(&gb, 0xFF55) != 0xFF) ok = 0;                 /* done */
+        /* HBlank-driven: src 0xD000 -> VRAM 0x0100, 2 blocks, stepped manually */
+        bus_write(&gb, 0xFF53, 0x01); bus_write(&gb, 0xFF54, 0x00);
+        bus_write(&gb, 0xFF55, 0x81);
+        if (bus_read(&gb, 0xFF55) != 0x01) ok = 0;                 /* active, 1 left */
+        hdma_hblank_step(&gb);
+        if (bus_read(&gb, 0xFF55) != 0x00) ok = 0;
+        hdma_hblank_step(&gb);
+        if (bus_read(&gb, 0xFF55) != 0xFF) ok = 0;                 /* done */
+        for (int i = 0; i < 0x20; i++) if (gb.vram[0x100 + i] != (u8)(i ^ 0x5A)) ok = 0;
         fprintf(stderr, "RESULT: %s\n", ok ? "PASS" : "FAIL");
         cart_free(&gb);
         return ok ? 0 : 1;

@@ -134,6 +134,16 @@ if "$BIN" roms/mooneye/emulator-only/mbc1/ram_64kb.gb --sav-selftest 2>&1 | grep
     pass=$((pass+1)); row "battery .sav round-trip" "PASS"
 else fail=$((fail+1)); row "battery .sav round-trip" "FAIL"; fi
 
+# --- CGB WRAM banking (SVBK) + VRAM DMA (HDMA general + HBlank) behavior ---
+total=$((total+1))
+if "$BIN" roms/cpu_instrs.gb --wram-selftest 2>&1 | grep -q "RESULT: PASS"; then
+    pass=$((pass+1)); row "CGB WRAM banking (SVBK)" "PASS"
+else fail=$((fail+1)); row "CGB WRAM banking (SVBK)" "FAIL"; fi
+total=$((total+1))
+if "$BIN" roms/cpu_instrs.gb --hdma-selftest 2>&1 | grep -q "RESULT: PASS"; then
+    pass=$((pass+1)); row "CGB VRAM DMA (HDMA)" "PASS"
+else fail=$((fail+1)); row "CGB VRAM DMA (HDMA)" "FAIL"; fi
+
 # --- rewind: in-memory snapshot round-trip + rewind/replay must be bit-identical ---
 total=$((total+1))
 if "$BIN" roms/games/libbet/libbet.gb --rewind-selftest >/dev/null 2>&1; then

@@ -4,9 +4,17 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 26 (complete, committed + pushed) — CGB BOOT STATE + --cgb hardware flag (+1)
+ROUND: 27 (complete, committed + pushed) — CGB WRAM banking (SVBK) + VRAM DMA (HDMA) (+2)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 130/130  (15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3-tester + .sav + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 132/132  (15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 27: WRAM banking (wram 8KB->32KB/8 banks, SVBK FF70, 0xD000 region switched). VRAM DMA:
+  HDMA FF51-55 general-purpose (instant block copy) + HBlank-mode (one 0x10 block per HBlank, stepped
+  from PPU mode-3->0). KEY1 (FF4D) double-speed register (prepare bit only; the switch is deferred).
+  +WRAM banking selftest +HDMA selftest (general+HBlank). DMG suite + CGB color untouched, no regress.
+  TODO: same-suite HDMA edge tests (gdma_addr_mask/hdma_lcd_off/gbc_dma_cont) need CPU-halt GDMA
+  timing + LCD-off semantics — next HDMA-precision round, likely paired with double-speed.
+
+ROUND: 26 (complete, committed + pushed) — CGB BOOT STATE + --cgb hardware flag (+1)
   Round 26: CGB post-boot state (g->cgb ? A=0x11 F=0x80 BC=0 DE=0x0008 HL=0x007C : DMG). A=0x11 is
   the CGB id games check -> cgb-acid-hell went 22865->2 mismatches (it now boots+renders). --cgb
   flag forces CGB hardware mode (for 0x00 carts that test CGB, e.g. boot_regs-cgb). +boot_regs-cgb
@@ -162,14 +170,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 27): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) CGB depth: WRAM banking (SVBK FF70) + double-speed (KEY1) + HDMA (FF51-55 general+HBlank) ->
-      unlocks CGB mooneye/same-suite + lets real CGB games run. Each gate-verifiable.
-  (2) cgb-acid-hell pixel-perfect: fix the mid-frame SCY raster timing (scy write applies 1 line
-      late). 2px from passing — would need precise scy-write-to-scanline timing (the timing tail).
-  (3) CGB compat palette for 0x80 DMG games (so they run in color on CGB) + boot_hwio-C (CGB HWIO).
+NEXT ROUND SEED (round 28): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) Double-speed (KEY1 switch via STOP + 2x CPU vs PPU/APU/timer timing) + HDMA precision
+      (CPU-halt during GDMA, LCD-off semantics, addr wrap) -> same-suite dma/* tests (gdma_addr_mask,
+      hdma_lcd_off, gbc_dma_cont in /tmp/gbtr_x) become real ROM passes. Lean here.
+  (2) cgb-acid-hell pixel-perfect: the mid-frame SCY raster timing (HALT-wake + STAT-int + scy-write
+      vs PPU sample; 2px). Confirmed mechanism: unrolled HALT;NOP;LD A,scy;LDH(42),A per line.
+  (3) CGB compat palette for 0x80 DMG games (run in color on CGB) + boot_hwio-C (CGB HWIO values).
   (4) Mealybug-tearoom (mid-scanline PPU torture — needs a per-dot PPU; high prestige, hard).
-  Lean (1) CGB depth (WRAM/double-speed/HDMA = real CGB game support + more CGB tests).
+  Lean (1) double-speed + HDMA precision (turns the WRAM/HDMA groundwork into real same-suite passes).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
