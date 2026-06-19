@@ -1,5 +1,27 @@
 # Progress Log
 
+## Round 38 — lcdon spec -> M-cycle ceiling confirmed; expand (PASS 1227->1395)  [committed + pushed]
+
+### The definitive finding
+- Fetched the authoritative LCD-on spec: `gh api Gekkio/mooneye-test-suite/.../ppu/lcdon_timing-GS.s`.
+  It states plainly: on DMG, "line 0 starts with mode 0 and goes straight to mode 3" (no OAM scan /
+  no mode 2 on the first LY=0), and "line 0 has different timings because the PPU is LATE BY 2 T-CYCLES";
+  lines 1-2 are normal. (CGB has a different behavior -> fails this test.) The expect_stat/oam/vram
+  tables confirm: line 0 = mode 0 then mode 3 then mode 0, OAM accessible during the mode-0 stretch.
+- Implemented it: lcd_on_delay=2 (skip 2 T at enable) + first-LY=0 reads mode 0 instead of 2, both
+  gated on !cgb. RESULT: broke 21 tests, fixed 0 of 43 lcdon. ROOT CAUSE: the test verifies LY/STAT/OAM
+  at 2-T-cycle resolution; my tick advances 4 T (one M-cycle) at a time, so a 2-T offset is literally
+  unrepresentable. Same ceiling as the sub-cycle oamdma (round 29), m2int STAT, and _ds_ audio tests.
+- => Breaking the timing-tail wall needs a per-T-cycle PPU/CPU, i.e. a substrate rewrite. That's a
+  frontier decision (big, risky), to weigh deliberately, not to slip into. Reverted clean.
+
+### What landed
+- Strict-increase via expansion: DMG 544->622, CGB 551->641. Gate 1227 -> 1395, no regression.
+
+### Lesson (reinforced)
+- Even WITH the authoritative spec, a precise-timing fix is blocked by the emulator's granularity. Bound
+  the attempt, revert clean, bank +N. The M-cycle/T-cycle boundary is now the explicit architectural wall.
+
 ## Round 37 — lcdon investigation (reverted) + expand (PASS 1038->1227)  [committed + pushed]
 
 ### What I tried (and why it failed)

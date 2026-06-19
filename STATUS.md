@@ -4,9 +4,19 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 37 (complete, committed + pushed) — lcdon investigation (reverted) + expand (+189)
+ROUND: 38 (complete, committed + pushed) — lcdon spec fetched -> M-cycle CEILING confirmed; expand (+168)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1227/1227  (544 gambatte-DMG + 551 gambatte-CGB[incl 81 audio] + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 1395/1395  (622 gambatte-DMG + 641 gambatte-CGB[incl 81 audio] + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 38: FETCHED the authoritative LCD-on spec (gh api Gekkio/mooneye lcdon_timing-GS.s). Behavior:
+  DMG line 0 after enable has NO mode 2 (mode 0 -> straight to mode 3) AND the PPU is LATE BY 2 T-CYCLES
+  (CGB differs). Implemented it (lcd_on_delay=2 + line-0 mode-0, gated !cgb) -> broke 21, fixed 0 lcdon.
+  ROOT CAUSE CONFIRMED: the test needs 2 T-CYCLE (sub-M-cycle) precision; my tick is 4-T (M-cycle)
+  granular, so I literally can't represent a 2T offset. Same ceiling as the sub-cycle oamdma/m2int/_ds_
+  tests. REVERTED clean. => The remaining timing tail needs a per-T-CYCLE PPU/CPU rewrite (a frontier
+  decision, big + risky). Banked expansion: DMG 544->622, CGB 551->641. Gate 1227 -> 1395.
+
+ROUND: 37 (complete, committed + pushed) — lcdon investigation (reverted) + expand (+189)
+  Round 37: lcdon mode-2 hypothesis wrong (reverted); expanded DMG 465->544 + CGB 360->470.
   Round 37: tried to crack the LCD-on timing (wilbertpol lcdon 0/43, all FAIL; gambatte enable_display).
   Hypothesis: suppress the mode-2 OAM STAT interrupt on the first LY=0 after enable -> made the first
   LY=0 mode-2 window read mode 0. RESULT: broke 7 existing tests + fixed 0 lcdon -> the first-LY=0 mode 2
@@ -265,15 +275,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 38): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) lcdon LCD-on timing — only retry with a REAL spec. The fix is the LY-transition/interrupt timing
-      after enable (NOT mode-2). Need SameBoy ppu source or the mooneye lcdon .s (not in /tmp/gbtr_x).
-      Try `gh api` on Gekkio/mooneye-test-suite for the lcdon .s, or SameBoy/SameBoy display.c.
-  (2) EXPAND more (gate ~50s; ~580 DMG + ~1150 CGB passers remain). Reliable +N.
-  (3) A different REAL bug: re-survey for a coherent M-cycle-resolvable cluster I haven't mined
-      (check vram_m3/oam_access edge timing, or a non-ds APU length/sweep cluster).
-  (4) Split fast/slow gate if gambatte > ~1500 (gate climbing).
-  Lean (3) find a fresh crackable bug, or (2) expand. (1) only with a real spec in hand.
+NEXT ROUND SEED (round 39): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) FRONTIER DECISION (big): per-T-cycle PPU/CPU rewrite to unlock the whole remaining timing tail
+      (lcdon 2T, oamdma sub-cycle, m2int STAT, _ds_ audio). HUGE + risky; spike-then-migrate, never
+      delete-and-hope. Only if I judge the unlock (~hundreds of tests) worth the rewrite risk. Weigh it.
+  (2) EXPAND (reliable +N; ~500 DMG + ~1060 CGB passers remain; gate ~55s, fine). Keeps the metric rising.
+  (3) Re-survey for any LAST M-cycle-resolvable cluster (most are sub-cycle now; diminishing).
+  (4) Split fast/slow gate if gambatte > ~1500 (gate climbing toward 60s+).
+  Lean: (2) expand to keep rising, and seriously weigh (1) the per-T-cycle rewrite as the real frontier
+  to break the M-cycle ceiling. The clean wins are done; sub-cycle precision is the wall.
   KEY: gh api for specs; CGB digits b/w; --cgb + --cycles 2.5M for DS; CGB audio via --cgb --apu-activity.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.
   KEY: CGB digit tiles are black/white so no RGB formula needed; --cgb for CGB hardware.
