@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/gbmicrotest/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' -not -path 'roms/gambatte/*' -not -path 'roms/gambatte-cgb/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/gbmicrotest/*' -not -path 'roms/blargg/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' -not -path 'roms/gambatte/*' -not -path 'roms/gambatte-cgb/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -248,6 +248,17 @@ while IFS= read -r rom; do
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-FAIL}"; fi
 done < <(find roms/gbmicrotest -name '*.gb' 2>/dev/null | sort)
 row "gbmicrotest/* ($gbmicro_pass passing, shown only on fail)" "OK"
+
+# --- Blargg screen-output variants (result on the BG tilemap; --blargg scans it) ---
+blargg_pass=0
+while IFS= read -r rom; do
+    total=$((total+1))
+    case "$rom" in *cgb_sound*) cg="--cgb";; *) cg="";; esac
+    res=$("$BIN" "$rom" $cg --blargg --cycles 300000000 2>&1 | grep -oE "RESULT: [A-Z]+" | head -1); res=${res#RESULT: }
+    if [ "$res" = "PASS" ]; then pass=$((pass+1)); blargg_pass=$((blargg_pass+1))
+    else fail=$((fail+1)); row "${rom#roms/}" "${res:-FAIL}"; fi
+done < <(find roms/blargg -name '*.gb' 2>/dev/null | sort)
+row "blargg/* ($blargg_pass passing, shown only on fail)" "OK"
 
 # --- skipped (reported, not counted): CGB-oriented / not DMG-applicable ---
 row "interrupt_time.gb (skip: CGB-oriented)" "SKIP"

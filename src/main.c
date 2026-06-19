@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0, gbmicro = 0;
+    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0, gbmicro = 0, blargg = 0;
     int wram_selftest = 0, hdma_selftest = 0, apu_activity = 0, fifo_selftest = 0;
     const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
@@ -38,6 +38,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--rgb") && i + 1 < argc) rgb_path = argv[++i];
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--gbmicro")) gbmicro = 1;
+        else if (!strcmp(argv[i], "--blargg")) blargg = 1;
         else if (!strcmp(argv[i], "--debug")) debug = 1;
         else if (!strcmp(argv[i], "--rewind-selftest")) rewind_test = 1;
         else if (!strcmp(argv[i], "--sav-selftest")) sav_selftest = 1;
@@ -274,6 +275,27 @@ int main(int argc, char **argv) {
         fprintf(stderr, "RESULT: %s\n", gb.hram[2] == 0x01 ? "PASS" : "FAIL");
         cart_free(&gb);
         return gb.hram[2] == 0x01 ? 0 : 1;
+    }
+
+    if (blargg) {
+        /* blargg screen-output variant: it prints the result text to the BG tilemap
+         * (0x9800), whose tile indices are ASCII (the font is ASCII-ordered). The
+         * displayed result is "Passed" or "Failed" -- scan the tilemap, not WRAM
+         * (WRAM holds the full string table, so both words appear there). */
+        u8 *tm = gb.vram + 0x1800;            /* 0x9800 tilemap, bank 0 */
+        #define TM_HAS(s) ({ int _f = 0; for (int _i = 0; _i + 6 < 0x400; _i++) \
+            if (!memcmp(tm + _i, s, 6)) { _f = 1; break; } _f; })
+        int done = 0;
+        while (gb.cycles < max_cycles && !done) {
+            u64 fc = gb.frame_count;
+            while (gb.frame_count == fc && gb.cycles < max_cycles) cpu_step(&gb);
+            if (TM_HAS("Failed") || TM_HAS("Passed")) done = 1;
+        }
+        int fail = TM_HAS("Failed"), pass = TM_HAS("Passed");
+        fprintf(stderr, "RESULT: %s\n", (pass && !fail) ? "PASS" : "FAIL");
+        #undef TM_HAS
+        cart_free(&gb);
+        return (pass && !fail) ? 0 : 1;
     }
 
     if (apu_activity) {

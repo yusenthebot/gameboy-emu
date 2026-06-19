@@ -1,5 +1,32 @@
 # Progress Log
 
+## Round 52 — blargg screen harness (+5 cgb_sound) + un-capped gambatte (+166) (PASS 2645->2816)  [committed + pushed]
+
+### Opened the blargg screen-output suite (a new harness)
+- The /tmp/gbtr_x/blargg ROMs are the SCREEN-output variants: serial_len=0, the result prints to the BG
+  tilemap (0x9800), whose tile indices are ASCII (the blargg font is ASCII-ordered). WRAM is NOT reliable
+  (it holds the full string table, so both "Passed" and "Failed" appear there). Added a --blargg mode that
+  scans the tilemap for "Failed" (fail) / "Passed" (pass) + a gate runner + serial-sweep exclusion.
+- Survey of the new families: +5 cgb_sound (CGB APU: 01-registers, 02-len, 03-trigger, 06-overflow,
+  10-wave-trigger) -- a genuinely new family. oam_bug FAILs (I don't model the DMG OAM corruption bug).
+  The dmg_sound singles I lack + the other cgb_sound fail (APU edge cases). The 3 dmg_sound "passers"
+  were double-counts of my frame-hash tests (my space-in-filename exclusion broke) -- dropped them.
+
+### Two more findings
+- gbmicrotest 295 FAILs are sub-cycle: the interrupt-timing cluster (got vs want) is off by VARYING
+  amounts (+1, +3, way-off) -- not one fixable constant, so it's the precise-firing-dot tail.
+- gambatte-CGB was NOT exhausted: I'd been capping per-category (vper>=120) to bound the gate. Removed
+  the cap -> +166 more real passers. (So earlier "nearly dry" was self-imposed, not real.)
+
+### What landed
+- --blargg mode (main.c) + gate runner + 5 cgb_sound. Un-capped gambatte-CGB (+166). Gate 2645 -> 2816.
+
+### Frontier ladder (## Frontier)
+- Reliable veins now genuinely thin (gambatte truly exhausted, gbmicrotest/blargg harvested). Next real
+  M-cycle feature: the DMG OAM bug (modelable, unlocks oam_bug + gbmicrotest oam_* -- round 53). Then
+  rtc3test / age-test-roms recheck. The sub-cycle tail still needs the T-cycle rewrite (separate path).
+- PERF: gate ~2816 tests + slow blargg runs -- a fast/slow split is due soon.
+
 ## Round 51 — NEW SOURCE: gbmicrotest harness (+218 M-cycle passers) (PASS 2427->2645)  [committed + pushed]
 
 ### gambatte-CGB was drying up, so I opened a fresh coverage source
