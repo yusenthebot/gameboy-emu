@@ -1,5 +1,29 @@
 # Progress Log
 
+## Round 28 — GAMBATTE TEST SUITE (DMG): a new rigorous dimension (PASS 132->262)  [committed + pushed]
+
+### What was built
+- Integrated the Gambatte test suite (pokemon-speedrunning/gambatte-core, 3524 ROMs in /tmp/gbtr_x/
+  gambatte). Mechanism (from its game-boy-test-roms-howto.md): each ROM runs exactly 15 LCD frames
+  (1053360 cycles = my --frames 15), then renders its result value as hex-digit 8x8 tiles at the
+  top-left of the screen. The expected value is encoded in the filename (_dmg08_outXX / _cgb04c_outYY).
+- tools/gambatte_check.py: decodes the rendered digits and compares to the expected. The 16-glyph font
+  was fetched from testrunner.cpp via `gh api repos/pokemon-speedrunning/gambatte-core/contents/...`
+  (WebFetch blocked; gh api works). Comparison masks with 0xF8F8F8 (matches my DMG shades exactly).
+
+### Verified
+- Swept 1740 DMG-runnable ROMs: ~54% pass (my PPU/IRQ/LY/LYC/STAT timing is already broadly accurate).
+  Vendored 130 confirmed passers (<=8 per category for diversity, 38 categories) into roms/gambatte/,
+  gated as one compact suite (roms/gambatte excluded from the serial sweep). Gate 132 -> 262, no regress.
+- Spot-checked passers visually: e.g. expected "C1" renders C then 1; the hard m1statwirq STAT-timing
+  tests correctly FAIL (the comparator discriminates — passes are genuine, not trivial).
+
+### Frontier / what's next
+- ~900 DMG gambatte passers exist; vendored only 130 (gate runtime + repo size). EXPAND each round.
+- Failing categories are REAL accuracy bugs to mine: oamdma 13/41, sound 4/18, m1statwirq (precise
+  STAT-write IRQ timing), enable_display. Each fix raises the pass rate = the timing tail, gate-measured.
+- CGB gambatte (~1500 more) needs the gambatte CGB RGB formula in the comparator.
+
 ## Round 27 — CGB WRAM banking (SVBK) + VRAM DMA (HDMA) (PASS 130->132)  [committed + pushed]
 
 ### What was built

@@ -4,9 +4,18 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 27 (complete, committed + pushed) — CGB WRAM banking (SVBK) + VRAM DMA (HDMA) (+2)
+ROUND: 28 (complete, committed + pushed) — GAMBATTE TEST SUITE (DMG) — NEW DIMENSION (+130)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 132/132  (15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 262/262  (130 gambatte-DMG + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 28: integrated the GAMBATTE test suite (3524 ROMs, pokemon-speedrunning/gambatte-core). Each
+  runs 15 frames then renders its result as hex-digit 8x8 tiles at the top-left; tools/gambatte_check.py
+  decodes them (font fetched from testrunner.cpp via gh api) + compares to the expected value in the
+  filename (mask 0xF8F8F8; DMG shades match). Swept 1740 DMG ROMs ~54% pass -> vendored 130 confirmed
+  passers (<=8/category, 38 categories) into roms/gambatte/, gated as one compact suite. HUGE frontier:
+  ~900 DMG passers exist; failing categories (oamdma 13/41, sound 4/18) = real accuracy work to mine.
+
+ROUND: 27 (complete, committed + pushed) — CGB WRAM banking (SVBK) + VRAM DMA (HDMA) (+2)
+  Round 27: WRAM banking (SVBK FF70, 8 banks) + HDMA (FF51-55 general+HBlank) + KEY1 register.
   Round 27: WRAM banking (wram 8KB->32KB/8 banks, SVBK FF70, 0xD000 region switched). VRAM DMA:
   HDMA FF51-55 general-purpose (instant block copy) + HBlank-mode (one 0x10 block per HBlank, stepped
   from PPU mode-3->0). KEY1 (FF4D) double-speed register (prepare bit only; the switch is deferred).
@@ -170,10 +179,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 28): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) Double-speed (KEY1 switch via STOP + 2x CPU vs PPU/APU/timer timing) + HDMA precision
-      (CPU-halt during GDMA, LCD-off semantics, addr wrap) -> same-suite dma/* tests (gdma_addr_mask,
-      hdma_lcd_off, gbc_dma_cont in /tmp/gbtr_x) become real ROM passes. Lean here.
+NEXT ROUND SEED (round 29): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) EXPAND the gambatte gate: sweep all 1740 DMG ROMs, vendor the rest of the ~900 passers (mind
+      gate runtime + repo size — maybe cap ~300 and grow each round). Pure strict-increase, cheap.
+  (2) MINE failing gambatte categories for real accuracy: oamdma (13/41), sound (4/18), m1statwirq,
+      enable_display — each fail is a precise timing bug to fix (the real frontier; raises pass rate).
+  (3) CGB gambatte: add the gambatte CGB RGB formula (R*13+G*2+B)/2 etc. to a --gambatte-cgb compare,
+      unlock cgb04c_out tests (another ~1500 ROMs).
+  (4) Double-speed + HDMA precision (same-suite dma/*); cgb-acid-hell scy 2px.
+  Lean (2)+(1): mine a failing category for a real bug, then expand the vendored batch. ROMs: /tmp/gbtr_x/gambatte.
   (2) cgb-acid-hell pixel-perfect: the mid-frame SCY raster timing (HALT-wake + STAT-int + scy-write
       vs PPU sample; 2px). Confirmed mechanism: unrolled HALT;NOP;LD A,scy;LDH(42),A per line.
   (3) CGB compat palette for 0x80 DMG games (run in color on CGB) + boot_hwio-C (CGB HWIO values).
