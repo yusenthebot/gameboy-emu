@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 30 — Gambatte AUDIO tests (outaudio), APU-verified (PASS 397->438)  [committed + pushed]
+
+### What was built
+- Added the Gambatte AUDIO test class. Per testrunner.cpp: a test with `_outaudio0` is silent (the
+  audio over the final frame is CONSTANT), `_outaudio1` produces audio (NOT constant). My gambatte_check
+  had been mis-parsing `outaudio` as hex "A" (the 'a' is a hex digit) — fixed with a negative lookahead
+  so it returns None (no false passes; the gate was already clean — 0 outaudio were vendored).
+- apu.c: native-rate activity probe — tracks the post-pan L/R mix min/max every synth tick (4-cycle
+  resolution, immune to the 48kHz resampler's aliasing). apu_activity_reset/varied. main.c --apu-activity
+  runs 15 frames, resets the window at the final frame, and prints RESULT: audio0/audio1.
+- run_tests.sh gambatte runner now branches: outaudio -> --apu-activity verdict vs the filename; else
+  the digit decode.
+
+### Verified
+- Swept 89 DMG audio tests: 41 pass (33 expect audio1 — my APU correctly sounds; 8 expect audio0 — my
+  APU correctly silent). Vendored the 41. Gate 397 -> 438, no regression (digit tests + 92 mooneye etc.).
+
+### What did NOT work / frontier
+- ~48 audio tests still fail: my APU reports audio1 (sounding) where the test expects audio0 (silent),
+  e.g. ch1_duty0_pattern_pos0. The channel should be silent at those duty positions but mine keeps
+  oscillating — a precise duty-pattern / length-counter / DAC-enable timing behavior I'd need to TRACE
+  one test to pin. That's the next APU-accuracy step (the timing tail).
+
 ## Round 29 — OAM DMA bus conflict + gambatte expand (PASS 262->397)  [committed + pushed]
 
 ### What was built

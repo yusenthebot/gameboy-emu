@@ -88,6 +88,12 @@ static const u8 WAVE_SH[4] = {4, 0, 1, 2};            /* NR32: mute/100/50/25% *
 static i16 g_samp[8192 * 2];   /* stereo ring (output only; not part of save state) */
 static int g_samp_n;
 
+/* Native-rate activity probe (for Gambatte outaudio tests): tracks the post-pan
+ * L/R mix range; "varied" means the output is not constant over the window. */
+static int g_actl_min, g_actl_max, g_actr_min, g_actr_max;
+void apu_activity_reset(void) { g_actl_min = g_actr_min = 1<<30; g_actl_max = g_actr_max = -(1<<30); }
+int  apu_activity_varied(void) { return g_actl_max > g_actl_min || g_actr_max > g_actr_min; }
+
 static int ch_output(Apu *a, int c) {
     if (!a->ch_on[c] || !a->ch_dac[c]) return 0;
     switch (c) {
@@ -137,6 +143,18 @@ static void synth_tick(GB *g, int t) {
                 if (width) a->lfsr = (u16)((a->lfsr & ~0x40) | (b << 6));
             }
         }
+    }
+    {   /* native-rate activity probe: sample the post-pan mix every tick */
+        int nr51 = a->reg[0x15], pl = 0, pr = 0;
+        for (int c = 0; c < 4; c++) {
+            int o = ch_output(a, c);
+            if (nr51 & (0x10 << c)) pl += o;
+            if (nr51 & (1 << c))    pr += o;
+        }
+        if (pl < g_actl_min) g_actl_min = pl;
+        if (pl > g_actl_max) g_actl_max = pl;
+        if (pr < g_actr_min) g_actr_min = pr;
+        if (pr > g_actr_max) g_actr_max = pr;
     }
     a->sample_acc += t * APU_SAMPLE_RATE;            /* exact resample, no drift */
     while (a->sample_acc >= CPU_HZ) {

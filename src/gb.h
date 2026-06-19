@@ -213,6 +213,8 @@ void apu_tick(GB *gb, int tcycles);
 u8   apu_read(GB *gb, u16 addr);
 void apu_write(GB *gb, u16 addr, u8 val);
 int  apu_drain_samples(GB *gb, i16 *out, int max_pairs);  /* returns stereo pairs drained */
+void apu_activity_reset(void);     /* Gambatte outaudio: reset the activity window */
+int  apu_activity_varied(void);    /* 1 if the APU output varied (not silent) */
 #define APU_SAMPLE_RATE 48000
 
 /* state.c */

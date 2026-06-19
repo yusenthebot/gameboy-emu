@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
     }
     const char *path = argv[1];
     int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0;
-    int wram_selftest = 0, hdma_selftest = 0;
+    int wram_selftest = 0, hdma_selftest = 0, apu_activity = 0;
     const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
@@ -42,6 +42,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--sav-selftest")) sav_selftest = 1;
         else if (!strcmp(argv[i], "--sav") && i + 1 < argc) sav_path = argv[++i];
         else if (!strcmp(argv[i], "--cgb")) force_cgb = 1;   /* run as CGB hardware */
+        else if (!strcmp(argv[i], "--apu-activity")) { apu_activity = 1; frames = 15; }
         else if (!strcmp(argv[i], "--wram-selftest")) wram_selftest = 1;
         else if (!strcmp(argv[i], "--hdma-selftest")) hdma_selftest = 1;
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
@@ -215,8 +216,13 @@ int main(int argc, char **argv) {
         FILE *af = audio_raw ? fopen(audio_raw, "wb") : NULL;
         i16 sbuf[2048];
         u64 lastf = gb.frame_count;
+        int act_reset = 0;
         while (gb.cycles < max_cycles && gb.frame_count < (u64)frames) {
             while (ke < nkev && gb.frame_count >= kev[ke].frame) gb.buttons = kev[ke++].mask;
+            /* Gambatte outaudio: measure activity over the final frame only. */
+            if (apu_activity && !act_reset && gb.frame_count == (u64)frames - 1) {
+                apu_activity_reset(); act_reset = 1;
+            }
             cpu_step(&gb);
             if (af && gb.frame_count != lastf) {           /* drain audio each frame */
                 lastf = gb.frame_count;
@@ -232,6 +238,11 @@ int main(int argc, char **argv) {
         }
         fprintf(stderr, "frames=%llu cycles=%llu\n",
                 (unsigned long long)gb.frame_count, (unsigned long long)gb.cycles);
+        if (apu_activity) {
+            printf("RESULT: %s\n", apu_activity_varied() ? "audio1" : "audio0");
+            cart_free(&gb);
+            return 0;
+        }
         if (save_state) {
             if (gb_save_state(&gb, save_state) == 0)
                 fprintf(stderr, "saved state %s\n", save_state);

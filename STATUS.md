@@ -4,9 +4,20 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 29 (complete, committed + pushed) — OAM DMA BUS CONFLICT + gambatte expand 130->265 (+135)
+ROUND: 30 (complete, committed + pushed) — GAMBATTE AUDIO TESTS (outaudio) — APU-verified (+41)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 397/397  (265 gambatte-DMG + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 438/438  (306 gambatte-DMG[incl 41 audio] + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 30: added the GAMBATTE AUDIO test class (outaudio0=silent/constant, outaudio1=audio/varying).
+  apu.c native-rate activity probe (post-pan L/R mix range per tick, immune to 48kHz aliasing) +
+  --apu-activity (resets at the final frame, prints audio0/1). Fixed gambatte_check.py: outaudio was
+  mis-parsed as hex "A" (negative lookahead now excludes it -> no false passes; gate was already clean).
+  Gate runner branches: outaudio -> --apu-activity, else digit decode. Swept 89 DMG audio tests = 41
+  pass (33 audio1 + 8 audio0 = my APU's real sound/silence is correct there). Vendored the 41. +41.
+  REMAINING ~48 audio fails = precise duty-pattern/length APU timing (my APU keeps a channel sounding
+  when it should be silent) — documented frontier, needs a trace of one test.
+
+ROUND: 29 (complete, committed + pushed) — OAM DMA BUS CONFLICT + gambatte expand 130->265 (+135)
+  Round 29: OAM DMA bus conflict (same-bus CPU read returns in-flight byte); gambatte batch 130->265.
   Round 29: REAL BUG MINED from gambatte/oamdma (was 84/343) — the OAM DMA BUS CONFLICT: while the DMA
   runs, a CPU read from the same bus the DMA uses (external=cart/SRAM/WRAM, or VRAM) returns the byte
   the DMA is mid-transfer (bus.c: dma_bus_val + dma_reading guard; conflict at top of bus_read on
@@ -187,15 +198,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 30): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) MINE another failing gambatte category for a real bug: sound (APU reads/length/envelope —
-      coherent + my APU is partial), enable_display (LCD-on timing), window/scx (PPU). Each = real
-      accuracy + flips a cluster. THE FRONTIER (timing tail).
-  (2) EXPAND the vendored batch further (cap higher / sweep all 1740; ~900 passers exist). Cheap +N
-      but watch gate runtime (~265 already ~2min) + repo size (8.3M). Maybe a SEPARATE slow-gate.
-  (3) CGB gambatte: add the gambatte CGB RGB formula to gambatte_check (mode cgb) — ~1500 more ROMs.
-  Lean (1) mine the sound category (real APU accuracy) — biggest coherent failing cluster after oamdma.
-  NOTE: oamdma sub-M-cycle precision is capped by the M-cycle-granular tick (got the basic conflict +8).
+NEXT ROUND SEED (round 31): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) TRACE one ch1 duty-pattern audio fail (e.g. ch1_duty0_pattern_pos0 expects audio0 but my APU
+      gives audio1 = a channel sounding when it should be silent). Likely a length-counter or
+      trigger/DAC-enable timing bug -> fixing it flips a cluster of the ~48 remaining audio fails.
+  (2) MINE a PPU category (enable_display LCD-on timing, lcdc mid-frame, window) — my PPU is strong,
+      likely a clean M-cycle-resolvable flip.
+  (3) EXPAND the digit batch (re-sweep, cap higher; ~900 passers). Safe +N; watch gate runtime/repo.
+  Lean (1) trace the duty-pattern audio bug (real APU accuracy, the timing tail) then (3) expand.
+  NOTE: --apu-activity probe works; gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.
   (2) cgb-acid-hell pixel-perfect: the mid-frame SCY raster timing (HALT-wake + STAT-int + scy-write
       vs PPU sample; 2px). Confirmed mechanism: unrolled HALT;NOP;LD A,scy;LDH(42),A per line.
   (3) CGB compat palette for 0x80 DMG games (run in color on CGB) + boot_hwio-C (CGB HWIO values).

@@ -134,15 +134,21 @@ if "$BIN" roms/mooneye/emulator-only/mbc1/ram_64kb.gb --sav-selftest 2>&1 | grep
     pass=$((pass+1)); row "battery .sav round-trip" "PASS"
 else fail=$((fail+1)); row "battery .sav round-trip" "FAIL"; fi
 
-# --- Gambatte test suite (DMG): each ROM renders its result as hex-digit tiles at
-#     the top-left after 15 frames; gambatte_check.py decodes + compares to the
-#     expected value encoded in the filename. (DMG shades match gambatte's exactly.) ---
+# --- Gambatte test suite (DMG): hex-digit-result ROMs render their value as 8x8
+#     tiles (gambatte_check.py decodes vs the filename); outaudio ROMs are checked
+#     for audio activity over the final frame (--apu-activity). 15 frames each. ---
 gpass=0; gtot=0
 while IFS= read -r grom; do
-    gtot=$((gtot+1)); total=$((total+1))
-    "$BIN" "$grom" --frames 15 --rgb /tmp/gemb.rgb --cycles 1500000 >/dev/null 2>&1
-    if python3 tools/gambatte_check.py "$(basename "$grom")" /tmp/gemb.rgb dmg >/dev/null 2>&1; then
-        gpass=$((gpass+1)); pass=$((pass+1))
+    gtot=$((gtot+1)); total=$((total+1)); gb_name=$(basename "$grom")
+    if [[ "$gb_name" == *outaudio* ]]; then
+        want=$(echo "$gb_name" | grep -oE "outaudio[01]" | head -1 | grep -oE "[01]")
+        got=$("$BIN" "$grom" --apu-activity --cycles 1500000 2>/dev/null | grep -oE "audio[01]" | grep -oE "[01]")
+        [ "$want" = "$got" ] && ok=1 || ok=0
+    else
+        "$BIN" "$grom" --frames 15 --rgb /tmp/gemb.rgb --cycles 1500000 >/dev/null 2>&1
+        python3 tools/gambatte_check.py "$gb_name" /tmp/gemb.rgb dmg >/dev/null 2>&1 && ok=1 || ok=0
+    fi
+    if [ "$ok" = 1 ]; then gpass=$((gpass+1)); pass=$((pass+1))
     else fail=$((fail+1)); row "gambatte ${grom#roms/gambatte/}" "FAIL"; fi
 done < <(find roms/gambatte \( -name '*.gb' -o -name '*.gbc' \) 2>/dev/null | sort)
 [ "$gtot" -gt 0 ] && row "gambatte DMG suite" "$gpass/$gtot"
