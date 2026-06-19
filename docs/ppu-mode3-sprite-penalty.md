@@ -1,3 +1,14 @@
+# Mode-3 sprite penalty — SOLVED (round 17)
+
+**Status: implemented and passing** `intr_2_mode0_timing_sprites` (all 105 testcases). The
+algorithm is the Pan Docs "OBJ penalty algorithm" in `obj_mode3_penalty()` (src/ppu.c):
+per object (sorted by x, ties by OAM index), if its BG tile isn't yet considered add
+`max(0, (7 - (bg_pos & 7)) - 2)`, then a flat +6; X=0 forces offset 0; X>=168 is skipped.
+The scanline model's mode-0 detection runs ~3 dots late, so the per-line total is reduced by
+3 dots (validated against all 105 oracle rows). The analysis below is kept for reference.
+
+---
+
 # Mode-3 sprite penalty — analysis & oracle (frontier groundwork)
 
 Mooneye `acceptance/ppu/intr_2_mode0_timing_sprites` is the gate for the pixel-FIFO

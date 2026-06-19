@@ -120,6 +120,7 @@ typedef struct GB {
     bool ly_coin;           /* LY==LYC coincidence, frozen while LCD is off */
     bool lcd_on_frame;      /* first frame after LCD enable (LY=0 mode-2 reads as 0) */
     bool stat_line;         /* STAT interrupt line (for rising-edge detection) */
+    int  mode3_obj_pen;     /* per-line object mode-3 penalty in dots (cached at mode-3 start) */
     u8  win_line;           /* window internal line counter */
     u8  fb[160 * 144];      /* rendered shade indices 0..3 (0=light,3=dark) */
     bool frame_ready;       /* set when a full frame has been rendered */

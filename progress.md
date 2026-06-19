@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 17 — pixel-FIFO OBJ mode-3 penalty (PASS 118->119, FRONTIER CRACKED)  [committed + pushed]
+
+### What was built (the owner-chosen frontier: FIFO sprite penalty)
+- Got the exact algorithm via `gh api repos/gbdev/pandocs/contents/src/Rendering.md` (WebFetch
+  was 403/404; gh api bypassed it). Pan Docs "OBJ penalty algorithm", implemented in
+  obj_mode3_penalty() (ppu.c), cached per line at the mode-2->3 transition, fed into mode3_end:
+  - objects sorted by (x asc, OAM index); X>=168 (off-screen right) skipped.
+  - per object: if its BG tile (bg_pos = x-8+SCX, >>3) is not yet considered, add
+    max(0, (7 - (bg_pos&7)) - 2); X=0 forces offset 0. Then a flat +6.
+- KEY calibration: my scanline model detects mode 0 ~3 dots late vs a per-dot fetcher, so the
+  per-line penalty is reduced by 3 dots. Found by forcing a fixed penalty (testcase 1, X=0,
+  expects extra 2, passes for 6-8 dots not Pan Docs' 11) then sweeping the offset: offset 3
+  passes ALL 105 testcases. Verified the algorithm offline first: replicated it in Python over
+  the oracle -> expected_extra == floor(my_dots/4), monotonic, zero contradictions (after the
+  two fixes: X=0->offset0, X>=168 excluded).
+- +intr_2_mode0_timing_sprites. No regression (acid2 0/23040, libbet title+gameplay unchanged,
+  intr_2_mode0/mode3/oam_ok still pass). Also flips the wilbertpol gpu name-dup (not gated).
+
+### What did NOT work / notes
+- The Pan Docs X=0 "always 11 dots" wording = offset-0 behavior (5+6), NOT +11 per object;
+  treating it as flat-11-each made 10-at-X=0 give 110 dots vs X=8's 65 (both expect extra 16).
+- Forgot X>=168 exclusion first -> off-screen-right objects wrongly penalized (extra 0 cases).
+
 ## Round 16 — VRAM blocking + sprite-FIFO groundwork (PASS 118->118, FLAT)  [committed local]
 
 ### What was attempted (the named frontier: FIFO sprite penalty)

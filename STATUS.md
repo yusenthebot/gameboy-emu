@@ -4,16 +4,15 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 16 (complete, committed local) — VRAM access blocking + sprite-FIFO groundwork
+ROUND: 17 (complete, committed + pushed) — pixel-FIFO OBJ mode-3 penalty (FRONTIER CRACKED)
 SUBSTRATE: C11 + clang
-PASS COUNT: 118/118  (gate FLAT this round — honest: no clean +1 was available)
-  Round 16: attacked the sprite mode-3 penalty (highest-leverage). Derived the 105-case
-  oracle; a closed form (floor(3n/2)+c) fits early cases but NOT the N-dependent bonus
-  threshold or cross-group cost -> it needs a faithful dot-stepped pixel-FIFO sim (multi-
-  round). Reverted the heuristic (won't ship wrong timing). Shipped instead: VRAM access
-  blocking (CPU VRAM reads 0xFF / writes ignored during mode 3; verified no regression,
-  0 new gated tests) + docs/ppu-mode3-sprite-penalty.md (oracle + analysis for next round).
-  NOT pushed (flat round; bundle the push with the next real +N).
+PASS COUNT: 119/119  (15 serial + acid2 + 9 framehash + 2 game + 92 Mooneye/WP/SameSuite)
+  Round 17: implemented the Pan Docs "OBJ penalty algorithm" (per-object mode-3 stall:
+  considered-tile (pixels-right-of-The-Pixel - 2) + flat 6; X=0 -> offset 0; X>=168 skipped).
+  Got the exact algorithm via `gh api` (WebFetch was blocked). Calibrated the scanline
+  measurement with a per-line -3-dot offset, validated against ALL 105 oracle testcases.
+  +intr_2_mode0_timing_sprites (the highest-leverage PPU test, owner's named "FIFO 像素流水线").
+  No regression (acid2 0/23040, libbet unchanged). Round 16's VRAM blocking pushed in the same bundle.
 
 PUBLISHED: https://github.com/yusenthebot/gameboy-emu (PUBLIC, branch main, MIT).
   Remote tracks origin/main. README has a Mermaid architecture diagram. Future rounds:
@@ -92,14 +91,12 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 17): OWNER CHOSE (A) — build the dot-stepped pixel-FIFO mode-3 sim.
-  Plan: (1) try `gh api` to fetch the Pan Docs / a reference emulator's OBJ-penalty algorithm
-  (WebFetch was 403/404 on travel net; gh api may bypass). (2) Build the sim in Python, verify
-  against ALL 105 oracle rows (re-extract from /tmp/ppu_src/intr_2_mode0_timing_sprites.s; see
-  docs/ppu-mode3-sprite-penalty.md). (3) Port to C: cache per-line at mode-2->3, feed mode3_end.
-  (4) Verify intr_2_mode0_timing_sprites passes + no regression (acid2 0/23040, full gate) +
-  re-check wilbertpol gpu for bonus passes. This is multi-round — land on solid ground each
-  round (don't leave the sim half-wired). Then PUSH (held since flat R16) with the gate increase.
+NEXT ROUND SEED (round 18): sprite penalty DONE. Remaining PPU tail: hblank_ly_scx (mode-0
+  IRQ vs +8 field offset), lcdon_timing/write (first-frame LY+STAT+OAM+VRAM), vblank_stat_intr.
+  Other tails: APU wave channel (dmg_sound 09/10/12 — freq timer + DMG wave-RAM window),
+  sample-accurate same-suite APU (~74), boot_div (handoff timing), MBC3+RTC+.sav. The
+  interactive minifb/SDL+cpal frontend remains the big diversification (needs owner present
+  to verify). Consider re-running the completeness sweep too. Pick the next tractable frontier.
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.
