@@ -24,45 +24,51 @@
 
 static inline u8 fifo_vram(GB *g, u16 addr) { return g->vram[addr - 0x8000]; }
 
-/* Render one background scanline via the FIFO. Fills out[160] with shade
- * indices (0..3) and returns the mode-3 length in dots. BG only (LCDC bit 0
- * assumed on; window/sprites not yet modelled). */
+/* Render one BG+window scanline via the FIFO. Fills out[160] with shade
+ * indices (0..3) and returns the mode-3 length in dots. The window mid-line
+ * switch restarts the fetcher (a known mode-3 extender). Sprites not yet
+ * modelled. (LCDC bit 0 assumed on.) */
 int fifo_bg_line(GB *g, int y, u8 *out) {
-    u16 bg_map = (g->lcdc & 0x08) ? 0x9C00 : 0x9800;
+    u16 bg_map  = (g->lcdc & 0x08) ? 0x9C00 : 0x9800;
+    u16 win_map = (g->lcdc & 0x40) ? 0x9C00 : 0x9800;
     int unsigned_tiles = (g->lcdc & 0x10) != 0;
-    int by = (g->scy + y) & 0xFF;
-    int trow = by & 7;
-    int mapy = (by >> 3) & 0x1F;
-    int scx = g->scx;
+    int win_on = (g->lcdc & 0x20) && (g->lcdc & 0x01) && (y >= g->wy);
+    int wx = g->wx, scx = g->scx;
+    int by = (g->scy + y) & 0xFF, trow = by & 7, mapy = (by >> 3) & 0x1F;
+    int wl = g->win_line, wtrow = wl & 7, wmapy = (wl >> 3) & 0x1F;
 
-    u8 fifo[16]; int fhead = 0, flen = 0;   /* BG FIFO holds up to two tiles */
-    int fetch_col = 0;    /* next BG tile column to fetch (scrolled tile space) */
-    int fstate = 0;       /* fetcher step: 0 id, 1 low, 2 high, 3 ready-to-push */
-    int ftimer = 0;       /* 2 dots per fetcher step */
+    u8 fifo[16]; int fhead = 0, flen = 0;
+    int fetch_col = 0, fstate = 0, ftimer = 0;
     u16 ftaddr = 0; u8 flo = 0, fhi = 0;
-    int warmup = 1;       /* the first tile fetch at mode-3 start is discarded */
-    int discard = scx & 7;
+    int warmup = 1, discard = scx & 7, in_win = 0;
     int out_x = 0, dot = 0;
 
     while (out_x < 160) {
-        /* fetcher: advance one step every 2 dots */
+        /* window trigger: the next visible pixel is inside the window -> the
+         * fetcher restarts on the window map (FIFO cleared). */
+        if (win_on && !in_win && out_x + 7 >= wx) {
+            in_win = 1; flen = 0; fhead = 0; fstate = 0; ftimer = 0;
+            fetch_col = 0; warmup = 1;
+            discard = (wx < 7) ? (7 - wx) : 0;   /* window starting left of x=0 */
+        }
         if (++ftimer >= 2) {
             ftimer = 0;
             if (fstate == 0) {
-                int mapx = ((scx >> 3) + fetch_col) & 0x1F;
-                u8 id = fifo_vram(g, bg_map + mapy * 32 + mapx);
+                int mapx = in_win ? (fetch_col & 0x1F) : (((scx >> 3) + fetch_col) & 0x1F);
+                int my   = in_win ? wmapy : mapy;
+                u16 map  = in_win ? win_map : bg_map;
+                u8 id = fifo_vram(g, map + my * 32 + mapx);
                 ftaddr = unsigned_tiles ? 0x8000 + id * 16
                                         : 0x9000 + (i16)((i8)id) * 16;
                 fstate = 1;
             } else if (fstate == 1) {
-                flo = fifo_vram(g, ftaddr + trow * 2); fstate = 2;
+                flo = fifo_vram(g, ftaddr + (in_win ? wtrow : trow) * 2); fstate = 2;
             } else if (fstate == 2) {
-                fhi = fifo_vram(g, ftaddr + trow * 2 + 1); fstate = 3;
+                fhi = fifo_vram(g, ftaddr + (in_win ? wtrow : trow) * 2 + 1); fstate = 3;
             }
             if (fstate == 3) {
-                if (warmup) {                     /* drop the warm-up tile, keep the column */
-                    warmup = 0; fstate = 0;
-                } else if (flen <= 8) {           /* push 8 when there's room for a tile */
+                if (warmup) { warmup = 0; fstate = 0; }    /* drop the warm-up tile */
+                else if (flen <= 8) {
                     for (int p = 0; p < 8; p++)
                         fifo[(fhead + flen + p) & 15] =
                             (u8)((((fhi >> (7 - p)) & 1) << 1) | ((flo >> (7 - p)) & 1));
@@ -70,7 +76,6 @@ int fifo_bg_line(GB *g, int y, u8 *out) {
                 }
             }
         }
-        /* mixer: one pixel per dot once the FIFO has data */
         if (flen > 0) {
             u8 cn = fifo[fhead]; fhead = (fhead + 1) & 15; flen--;
             if (discard > 0) discard--;

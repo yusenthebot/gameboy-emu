@@ -4,9 +4,18 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 39 (complete, committed + pushed) — FRONTIER: pixel-FIFO PPU spike begun + expand (+119)
+ROUND: 40 (complete, committed + pushed) — FIFO migration step 2: window fetch + expand (+78)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1514/1514  (670 gambatte-DMG + 711 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 1592/1592  (688 gambatte-DMG + 771 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 40: FIFO migration step 2 = WINDOW fetch. src/ppu_fifo.c now renders BG+window: at the window
+  trigger (out_x+7>=WX) the fetcher restarts on the window map (FIFO cleared, win_line/win_map, the
+  wx<7 left-discard handled) — the mid-line restart is a real mode-3 extender. VALIDATED (--fifo-selftest
+  upgraded): pixel-exact vs the BG/window formula across 168 WX/SCX/line combos. Still standalone (ppu.c
+  untouched, zero gate risk). +expansion DMG 670->688 (DMG categories ~capped), CGB 711->771. Gate 1514->1592.
+  NEXT FIFO step: SPRITE fetch (OBJ FIFO + the mode-3 penalty) — the timing-critical piece.
+
+ROUND: 39 (complete, committed + pushed) — FRONTIER: pixel-FIFO PPU spike begun + expand (+119)
+  Round 39: src/ppu_fifo.c pixel-FIFO BG renderer; mode-3 emerges 171+(SCX&7); +1 gate; crossed 1500.
   Round 39: STARTED the per-T-cycle PPU migration (the way past the M-cycle ceiling). src/ppu_fifo.c =
   a pixel-FIFO BG renderer (fetcher 2 dots/step + 16-px FIFO push-when-<=8 + warm-up + SCX&7 discard).
   VALIDATED standalone (--fifo-selftest, +1 gate): reproduces the BG formula across 720 SCX/SCY/line
@@ -284,15 +293,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 40): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) FIFO MIGRATION step 2: extend src/ppu_fifo.c to a FULL line — window fetch (restart fetcher at WX,
-      win tilemap) + sprite fetch (per-OBJ FIFO mix + the mode-3 stall), still standalone + validated vs
-      render_scanline pixels AND obj_mode3_penalty. Builds the T-cycle PPU safely (no risk to the gate).
-  (2) FIFO step 3 (after step 2): integrate the FIFO as the real PPU's mode-3 length driver (drop the
-      -3/+8 calibration), re-pass acid2 + intr_2 + gambatte PPU; then 2T lcdon etc. become reachable.
-  (3) EXPAND (reliable +N; gate ~55s). Migration order: BG(done)->window+sprite->integrate->T-cycle modes.
-  Lean (1) FIFO step 2 as the frontier + a little (3). Spike-then-migrate; never break the gate at a boundary.
-  Consider a fast/slow gate split soon (gate past 1500). KEY: gh api for specs; --cgb + --cycles 2.5M DS.
+NEXT ROUND SEED (round 41): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) FIFO step 2b: SPRITE fetch in src/ppu_fifo.c — OBJ FIFO + BG/OBJ priority mix, and the per-sprite
+      mode-3 stall (fetcher pauses; the penalty EMERGES). Validate pixels by exposing render_scanline
+      (make it non-static) + the timing vs obj_mode3_penalty (oracle-validated) across OAM configs.
+      The TIMING piece (the FIFO's natural penalty, no -3 fudge) = the migration's key milestone.
+  (2) FIFO step 3: once BG+win+sprite all validated, integrate the FIFO as the real PPU mode-3 driver.
+  (3) EXPAND (CGB has headroom ~1000 left; DMG ~capped; gate ~58s). 
+  Lean (1) sprite fetch + a little (3) CGB expand. Spike-then-migrate; never break the gate at a boundary.
+  KEY: render_scanline + obj_mode3_penalty are static in ppu.c — expose for FIFO validation.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.
   KEY: CGB digit tiles are black/white so no RGB formula needed; --cgb for CGB hardware.
   NOTE: --apu-activity is cycle-based (robust). gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.

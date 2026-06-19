@@ -1,5 +1,26 @@
 # Progress Log
 
+## Round 40 — FIFO migration step 2: window fetch + expand (PASS 1514->1592)  [committed + pushed]
+
+### Frontier progress (T-cycle PPU migration, step 2)
+- src/ppu_fifo.c now renders BACKGROUND + WINDOW. The window is a fetcher state switch: when the next
+  visible pixel enters the window (out_x+7 >= WX), the FIFO is cleared and the fetcher restarts on the
+  window map (win_line/win_map, with the wx<7 left-of-screen discard handled). That mid-line restart is
+  a real mode-3 extender (it's why a window costs ~6 dots).
+- VALIDATED (--fifo-selftest upgraded): pixel-exact vs the BG/window formula across 168 WX/SCX/line
+  combinations (WX in {0,3,7,23,80,160,167}). Still standalone — ppu.c untouched, zero risk to the gate.
+
+### What landed
+- The window step (frontier, no new gate row — --fifo-selftest was already gated) + expansion DMG
+  670->688 (DMG categories ~capped now), CGB 711->771. Gate 1514 -> 1592.
+
+### Frontier ladder (## Frontier)
+- Step 1 (BG): DONE+validated. Step 2a (window): DONE+validated (this round).
+- Step 2b (NEXT): SPRITE fetch — OBJ FIFO + priority mix + the per-sprite mode-3 stall (the penalty
+  EMERGES from fetcher pauses, no -3 fudge). Validate vs render_scanline (expose it) + obj_mode3_penalty.
+- Step 3: integrate the FIFO as the real PPU's mode-3 driver; drop the calibration; re-pass acid2/intr_2.
+- Step 4: T-cycle the mode transitions -> unlock lcdon 2T / m2int / oamdma sub-cycle.
+
 ## Round 39 — FRONTIER: pixel-FIFO PPU spike begun + expand (PASS 1395->1514)  [committed + pushed]
 
 ### Frontier decision + first step
