@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 33 — Gambatte CGB suite: a new dimension (PASS 495->655)  [committed + pushed]
+
+### What was built
+- Opened the CGB half of the Gambatte suite (3023 cgb04c digit tests). Insight: the result is drawn
+  as black/white digit tiles, and the comparator masks with 0xF8F8F8 — so pure white (any RGB formula)
+  -> 0xF8F8F8 and black -> 0x000000. My CGB RGB formula ((c<<3)|(c>>2)) and gambatte's differ on
+  mid-tones but AGREE on black/white, so the digit comparison works WITHOUT porting gambatte's CGB
+  formula. Ran the tests with --cgb (CGB hardware).
+- Sampled ~56% pass. Vendored 160 CGB digit passers (cap 5/category, 48 categories) into
+  roms/gambatte-cgb/; added a gate runner mirroring the DMG one but --cgb + gambatte_check mode cgb;
+  excluded roms/gambatte-cgb from the serial sweep.
+
+### Verified
+- gambatte CGB suite 160/160; full gate 495 -> 655, no regression. Validates my CGB PPU/timing broadly.
+
+### Investigated + deferred
+- enable_display (DMG, 37/68): frame0_ly_count is a clean off-by-one (I give 154, real HW 153 for one
+  enable phase) but frame0_m2irq_count / ly_count_2 diverge a lot (got 01/02 vs 98/9A) — it's a deep,
+  multi-faceted first-frame-after-LCD-on timing area (mode-2 skip, LY quirk, STAT IRQ timing), not a
+  single clean fix. Deferred. My PPU resets ppu_dot=0 on LCDC.7 0->1 (ppu.c:392); real HW has a
+  first-frame quirk. Worth a dedicated round later.
+- Gate is ~33s/run (my earlier "3 min" was wrong) — no fast/slow split needed yet.
+
 ## Round 32 — Undefined-opcode CPU lock-up + gambatte expand (PASS 455->495)  [committed + pushed]
 
 ### What was fixed

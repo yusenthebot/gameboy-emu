@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' -not -path 'roms/gambatte/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' -not -path 'roms/gambatte/*' -not -path 'roms/gambatte-cgb/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -152,6 +152,18 @@ while IFS= read -r grom; do
     else fail=$((fail+1)); row "gambatte ${grom#roms/gambatte/}" "FAIL"; fi
 done < <(find roms/gambatte \( -name '*.gb' -o -name '*.gbc' \) 2>/dev/null | sort)
 [ "$gtot" -gt 0 ] && row "gambatte DMG suite" "$gpass/$gtot"
+
+# --- Gambatte CGB suite: same ROMs run as CGB hardware (--cgb); the result digits
+#     are black/white so they mask to the font identically regardless of RGB formula. ---
+cpass=0; ctot=0
+while IFS= read -r crom; do
+    ctot=$((ctot+1)); total=$((total+1))
+    "$BIN" "$crom" --cgb --frames 15 --rgb /tmp/gembc.rgb --cycles 1500000 >/dev/null 2>&1
+    if python3 tools/gambatte_check.py "$(basename "$crom")" /tmp/gembc.rgb cgb >/dev/null 2>&1; then
+        cpass=$((cpass+1)); pass=$((pass+1))
+    else fail=$((fail+1)); row "gambatte-cgb ${crom#roms/gambatte-cgb/}" "FAIL"; fi
+done < <(find roms/gambatte-cgb \( -name '*.gb' -o -name '*.gbc' \) 2>/dev/null | sort)
+[ "$ctot" -gt 0 ] && row "gambatte CGB suite" "$cpass/$ctot"
 
 # --- CGB WRAM banking (SVBK) + VRAM DMA (HDMA general + HBlank) behavior ---
 total=$((total+1))
