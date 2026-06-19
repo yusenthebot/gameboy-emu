@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 53 — exhaustive source sweep (parallel workflow) + 5 PNG-PPU passers (PASS 2816->2821)  [committed + pushed; loop PAUSED]
+
+### Ran a 6-agent parallel workflow to sweep EVERY remaining untapped source at once
+- Confirmed dry / sub-cycle (no new passers): age-test-roms (47, PPU+speed-switch sub-cycle), blargg
+  dmg_sound/cgb_sound singles I lacked (0 at 600M cycles -- APU sweep/length/wave not accurate enough),
+  cgb-mealybug static (0), rtc3test (shows a menu, needs button input -- no auto-run), mooneye-misc-cgb
+  (only boot_regs-cgb, already gated). This is valuable: the easy M-cycle veins are now provably tapped.
+- FOUND 5 DMG PNG-PPU passers: scribbltests {lycscx, lycscy, palettely, scxly} + turtle
+  window_y_trigger_wx_offscreen. Their reference PNGs are RGB/paletted (not grayscale), so mealybug_check
+  couldn't read them -- built tools/pngcmp.py (decodes gray/RGB/RGBA/paletted at any bitdepth, maps both
+  ref and emu frame to the 4 DMG shades by luminance bins, exact compare). Verified all 5 at --frames 30,
+  vendored rom+ref, added a gate runner + serial-sweep exclusion. Gate 2816 -> 2821 (+5).
+
+### Paused here (user request, 2026-06-19)
+- Loop stopped after this round to resume later. STATUS.md now holds the verbatim /loop prompt + a
+  cold-start ORIENT note, so re-feeding it to /loop resumes with zero loss.
+
+### Frontier ladder (## Frontier)
+- The easy M-cycle harvest is essentially done (2821 green). Remaining: (1) DMG OAM bug (~2 tests,
+  modelable); (2) APU-accuracy pass for more blargg sound singles; (3) gate fast/slow split; (4) THE big
+  swing -- the per-T-cycle CPU+PPU re-calibration (separate path) that unlocks the whole sub-cycle tail
+  (confirmed 5x as the only path). "周期精确" really lives in (4); weigh committing to it next.
+
 ## Round 52 — blargg screen harness (+5 cgb_sound) + un-capped gambatte (+166) (PASS 2645->2816)  [committed + pushed]
 
 ### Opened the blargg screen-output suite (a new harness)

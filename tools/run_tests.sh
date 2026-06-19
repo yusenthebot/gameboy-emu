@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/gbmicrotest/*' -not -path 'roms/blargg/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' -not -path 'roms/gambatte/*' -not -path 'roms/gambatte-cgb/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/gbmicrotest/*' -not -path 'roms/blargg/*' -not -path 'roms/scribbltests/*' -not -path 'roms/turtle/*' -not -path 'roms/cgb-acid2/*' -not -path 'roms/cgb/*' -not -path 'roms/gambatte/*' -not -path 'roms/gambatte-cgb/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -39,6 +39,23 @@ for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
     tmp="/tmp/gbemu_$(basename "$rom").raw"
     "$BIN" "$rom" --frames "$frames" --raw "$tmp" >/dev/null 2>&1
     if python3 tools/imgcmp.py "$ref" "$tmp" >/dev/null 2>&1; then pass=$((pass+1)); row "$name" "PASS"
+    else fail=$((fail+1)); row "$name" "FAIL"; fi
+done
+
+# --- PNG-PPU suites (scribbltests/turtle): render a frame, pixel-diff vs the reference ---
+PNGPPU=(
+  "roms/scribbltests/lycscx/lycscx.gb:roms/scribbltests/lycscx/lycscx-cgb-dmg.png:30"
+  "roms/scribbltests/lycscy/lycscy.gb:roms/scribbltests/lycscy/lycscy-cgb-dmg.png:30"
+  "roms/scribbltests/palettely/palettely.gb:roms/scribbltests/palettely/palettely-dmg.png:30"
+  "roms/scribbltests/scxly/scxly.gb:roms/scribbltests/scxly/scxly-dmg.png:30"
+  "roms/turtle/window_y_trigger_wx_offscreen/window_y_trigger_wx_offscreen.gb:roms/turtle/window_y_trigger_wx_offscreen/window_y_trigger_wx_offscreen.png:30"
+)
+for spec in "${PNGPPU[@]}"; do
+    IFS=: read -r rom ref frames <<< "$spec"; total=$((total+1)); name="${rom#roms/} (png)"
+    if [ ! -f "$rom" ] || [ ! -f "$ref" ]; then fail=$((fail+1)); row "$name" "MISSING"; continue; fi
+    tmp="/tmp/gbemu_$(basename "$rom").png"
+    "$BIN" "$rom" --frames "$frames" --png "$tmp" >/dev/null 2>&1
+    if python3 tools/pngcmp.py "$ref" "$tmp" >/dev/null 2>&1; then pass=$((pass+1)); row "$name" "PASS"
     else fail=$((fail+1)); row "$name" "FAIL"; fi
 done
 

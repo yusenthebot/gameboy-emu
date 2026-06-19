@@ -2,11 +2,36 @@
 
 GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
-increase each round. (Full goal in the /loop prompt.)
+increase each round. (Full goal in the /loop prompt below.)
+
+PAUSED at round 53 (2026-06-19) at the user's request — resume later by re-feeding
+the loop prompt below to `/loop`. The loop is compaction-safe: ORIENT re-reads this
+file + progress.md + git log, so resuming loses nothing.
+
+LOOP PROMPT (verbatim — re-feed to /loop to resume the autonomous build):
+  在 ~/evolab/gameboy-emu 造一个 Game Boy(DMG/CGB)模拟器。起点(第一轮的地板,不是终点):SM83 CPU 核,
+  跑通 Blargg cpu_instrs 并往串口打印 "Passed"(先不用画面)。把它当地板,之后每轮自己研究往 SameBoy 那种
+  "周期精确"爬——完整指令+时序、扫描线 PPU(让 Tetris 进到能玩的标题画面)、过 acid2/Mooneye 测试、MBC+存档、
+  APU 声音,直到子指令级 T-cycle 精度(FIFO 像素流水线、STAT 怪癖)、再加调试器/即时存档/回放。顺序你自己定。
+  Rust/Zig/C 写;~4MHz 的机器在 M 芯片上随便跑,不用 GPU。预批准依赖:rust/cargo(或 zig/clang)、sdl2 或
+  minifb、cpal、公开测试 ROM 集(Blargg、Mooneye-GB、acid2、Wilbert Pol,免费)。每轮验证全自动:测试 ROM 往
+  串口写 Passed/Failed(读 stdout);acid2 出确定画面,跟官方参考 PNG 逐像素 diff;可玩性就 dump 第 N 帧 PNG 对
+  哈希。通过数必须严格增加——别停在"游戏能跑起来看着对",真正的前沿是后面那条长长的时序尾巴。记住这是全自助
+  loop,自己决定方向,别问我。
+
+ROUND: 53 (complete, committed + pushed; loop PAUSED here) — exhaustive source sweep (workflow) + 5 PNG-PPU passers
+SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
+PASS COUNT: 2821/2821  (688 gambatte-DMG + 1772 gambatte-CGB + 218 gbmicrotest + 5 blargg-cgb_sound + 5 scribbl/turtle PNG + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 53: ran a 6-agent parallel workflow sweeping ALL remaining untapped sources. Confirmed dry/sub-cycle:
+  age-test-roms (0, PPU/speed-switch sub-cycle), blargg-sound singles (0, APU not accurate enough), cgb-mealybug
+  static (0), rtc3test (needs button input -- menu, can't auto-run), mooneye-misc-cgb (only boot_regs-cgb, already
+  gated). FOUND 5 DMG PNG-PPU passers: scribbltests {lycscx, lycscy, palettely, scxly} + turtle window_y_trigger_
+  wx_offscreen. Built tools/pngcmp.py (robust PNG decode: gray/RGB/RGBA/paletted -> 4-shade luminance compare;
+  the refs are RGB/paletted, not grayscale) + gate runner (--frames 30, pixel-exact). Gate 2816 -> 2821 (+5).
 
 ROUND: 52 (complete, committed + pushed) — blargg screen harness (+5 cgb_sound) + un-capped gambatte (+166)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 2816/2816  (688 gambatte-DMG + 1772 gambatte-CGB + 218 gbmicrotest + 5 blargg-cgb_sound + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT (R52): 2816/2816  (688 gambatte-DMG + 1772 gambatte-CGB + 218 gbmicrotest + 5 blargg-cgb_sound + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
   Round 52: (a) the /tmp blargg ROMs are SCREEN-output (serial_len=0); their result text lands on the
   BG tilemap (0x9800), whose tile indices are ASCII. Added a --gbmicro-style --blargg mode that scans
   the tilemap for "Passed"/"Failed" (NOT WRAM -- WRAM holds the full string table, both words). Survey
@@ -335,17 +360,23 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 53): decide autonomously, don't ask ([[loop-full-autonomy]]). The reliable veins are
-  now genuinely thin (gambatte exhausted, gbmicrotest/blargg harvested). Remaining options:
-  (1) rtc3test: build its result mechanism (RTC test, I have MBC3+RTC) -- a possible fresh source.
-  (2) age-test-roms (mooneye-format, 47) -- re-check which pass (some OAM/speed-switch may be M-cycle).
-  (3) The DMG OAM bug: blargg oam_bug + gbmicrotest oam tests want it. It's a documented DMG corruption
-      quirk (INC/DEC of a 16-bit reg pointing at OAM during mode 2 corrupts OAM). M-cycle-MODELABLE (not
-      sub-cycle!) -- could unlock oam_bug + several gbmicrotest oam_* tests. Real feature, weigh it.
-  (4) PERF: the gate is ~2816 tests + slow blargg runs; consider a fast/slow split so rounds stay quick.
-  (5) Big swing: T-cycle rewrite (separate path) for the sub-cycle tail.
-  Lean (3) the OAM bug (a real M-cycle feature with a test cluster) + (1)/(2) fresh sources. KEY: --blargg
-  scans the 0x9800 tilemap (ASCII); --gbmicro = FF82; gambatte capping was artificial (now removed).
+NEXT ROUND SEED (round 54 — when the loop resumes): decide autonomously, don't ask ([[loop-full-autonomy]]).
+  Round 53's exhaustive workflow sweep CONFIRMED the easy M-cycle veins are now genuinely tapped (gambatte,
+  gbmicrotest, blargg, mooneye, scribbl/turtle all harvested; age-test-roms / cgb-mealybug / rtc3test yield
+  nothing -- sub-cycle / APU-accuracy / needs-input). What's left, in rough ambition order:
+  (1) DMG OAM bug (~2 tests: blargg oam_bug + gbmicrotest oam_sprite_trashing): a documented, M-cycle-
+      MODELABLE corruption quirk (16-bit INC/DEC pointing into FExx during mode 2 trashes an OAM row).
+      Small yield but a real feature; do it spike-then-verify vs oam_bug's 8 sub-tests.
+  (2) APU accuracy pass: the blargg dmg_sound/cgb_sound singles that fail (04/05/07/08/09/10/12 etc.) want
+      precise sweep / length-during-power / wave-channel timing. Some may be M-cycle-fixable -> +N each.
+  (3) PERF: gate is ~2821 tests + slow blargg/sound runs; a fast/slow split keeps rounds quick.
+  (4) THE BIG SWING (the real frontier the goal names): the from-scratch per-T-cycle CPU+PPU re-calibration
+      on a SEPARATE parallel path. Unlocks the whole sub-cycle tail (lcdon 2T, m2int, mealybug, cgb-acid-hell,
+      ~hundreds of gbmicrotest/gambatte fails). Confirmed 5x as the ONLY path. High-risk, multi-round;
+      spike-then-migrate, migrate only when it passes strictly more, NEVER break the 2821 gate at a boundary.
+  Lean: (1)+(2) for steady M-cycle gains, but (4) is where "周期精确" actually lives -- consider committing.
+  KEY HARNESSES: --gbmicro=FF82; --blargg=scan 0x9800 tilemap ASCII; pngcmp.py=any-PNG 4-shade; cgbcmp.py=CGB
+  RGB; --mooneye=RESULT:PASS. gambatte cap was artificial (removed). piecemeal sub-cycle ALWAYS regresses.
   behind the T-cycle re-calib (4 proofs); that's the big-swing frontier if ever committed to.
   KEY: cgbcmp.py compares CGB RGB vs ref PNG; mealybug_check.py for grayscale; OPRI(FF6C) now implemented.
   KEY: --mooneye prints "RESULT: PASS"; all mooneye PPU-timing PASS; piecemeal sub-cycle = regression (proven 3x).
