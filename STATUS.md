@@ -4,18 +4,21 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 43 (complete, committed + pushed) — FIFO integration ANALYSIS (no-op finding) + expand (+90)
+ROUND: 44 (complete, committed + pushed) — frontier mapping (CPU tick model) + expand (+100)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 1842/1842  (688 gambatte-DMG + 1021 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 43: measured FIFO mode-3 length vs the scanline's mode3_end (=172+scx&7+obj_mode3_penalty).
-  Offset: -1 (no objects, FIFO base 171 vs 172) / +2 (objects: -1 base + the +3 no-fudge penalty).
-  KEY FINDING: integrating the FIFO's mode-3 LENGTH is a NO-OP — after matching the oracle-validated
-  scanline calibration (base 172, the -3 line fudge) it just reproduces the scanline (which already
-  passes intr_2). The FIFO alone unlocks no new tests. The genuine sub-cycle tail (lcdon 2T, m2int)
-  is blocked by the M-cycle CPU (round 38): it needs a per-T-cycle CPU+PPU CO-simulation, a major
-  rewrite of a 1842-test game-playing emulator (high regression risk) — to weigh, not rush.
-  ONE real FIFO upside: it models the WINDOW mode-3 penalty the scanline lacks (a possible small unlock).
-  Housekeeping: removed orphan ppu_lite.o (was breaking standalone links). +CGB 931->1021. Gate 1752->1842.
+PASS COUNT: 1942/1942  (688 gambatte-DMG + 1121 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 44: (a) WINDOW-penalty unlock is empty — only 1 non-vendored window DMG test exists and it's
+  m2int (sub-cycle). (b) Surveyed remaining gambatte fails (266 DMG sample): dominated by sub-cycle
+  timing (m2int/m3stat/lcdon/oamdma/lyc/enable STAT+IRQ); no resolvable M-cycle cluster left.
+  (c) KEY: the CPU is ALREADY per-M-cycle tick-before-access (cpu.c rd = tick(4)+bus_read; PPU advances
+  4 dots per access). So the sub-cycle tail is NOT a missing feature — it needs each access to land at a
+  sub-M-cycle T, i.e. a COHERENT T-cycle re-calibration (shift access timing + re-derive STAT_MODE_DELAY/
+  mode3_end together). Round 38's piecemeal lcdon (lcd_on_delay=2 -> broke 21) proves piecemeal fails.
+  => The remaining frontier is one delicate re-calibration; risky to rush autonomously on a 1942 gate.
+  +CGB expansion 1021->1121. Gate 1842 -> 1942 (approaching 2000).
+
+ROUND: 43 (complete, committed + pushed) — FIFO integration ANALYSIS (no-op finding) + expand (+90)
+  Round 43: FIFO timing-integrate is a no-op (matches calibrated scanline); sub-cycle needs per-T CPU. +CGB.
 
 ROUND: 42 (complete, committed + pushed) — FIFO step 2c: SPRITE TIMING (penalty EMERGES) + expand (+80)
   Round 42: object hit STALLS the mixer (6 + once-per-tile align); penalty EMERGES == obj_mode3_penalty+3.
@@ -319,16 +322,17 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 44): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) WINDOW mode-3 penalty (the one real FIFO upside): the scanline's mode3_end ignores the window
-      fetcher-restart cost; the FIFO models it. Spike: add ONLY a window mode-3 penalty to mode3_end
-      (tune vs the FIFO's window-line length, keep sprite/base unchanged so calibration holds), re-run
-      the FULL gate. If gambatte window-timing tests newly pass AND nothing regresses, ship. Reversible.
-  (2) EXPAND (CGB headroom ~700; gate ~70s — SPLIT fast/slow gate soon so rounds stay quick).
-  (3) Survey for any LAST M-cycle-resolvable cluster (most remaining are sub-cycle, blocked by the CPU).
-  (4) BIG (weigh, likely defer): per-T-cycle CPU+PPU co-sim — the only path to lcdon 2T / m2int / _ds_.
-      Massive rewrite of a 1842-test emulator; spike-then-migrate; huge regression risk. Don't rush.
-  Lean (1) the window penalty (concrete, bounded, a real shot at new tests) + (2) keep rising.
+NEXT ROUND SEED (round 45): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) MILESTONE REVIEW round (cross 2000): expand to push past 2000, THEN a review — adversarially
+      verify a few claimed features in a real run (debugger, save-states, rewind, a real game frame),
+      delete any dead code/docs, refresh progress.md to reality, short milestone summary.
+  (2) T-cycle re-calibration SPIKE (the genuine frontier, careful): build a SEPARATE validated path —
+      pick ONE sub-cycle test (e.g. a single m3stat or lcdon), model the access at its true T inside a
+      gated/parallel routine, prove it passes that test WITHOUT touching the default CPU. Only migrate
+      once the new path passes strictly MORE than the current. Never break the 1942 gate at a boundary.
+  (3) EXPAND (CGB headroom ~600). Lean (1) the 2000 milestone review + expand. Frontier = (2), done carefully.
+  KEY: CPU is per-M-cycle tick-before-access (cpu.c rd=tick(4)+bus_read); sub-cycle = coherent T re-calib;
+  mode3_end=172+scx&7+obj_mode3_penalty; STAT_MODE_DELAY=8; round38 piecemeal lcdon broke 21 (don't repeat).
   KEY: FIFO complete+validated; mode3_end=172+scx&7+obj_mode3_penalty; FIFO base 171, penalty=obj_pen+3.
   KEY: pixels DONE+validated; render_scanline + obj_mode3_penalty exposed; --cgb + --cycles 2.5M DS.
   KEY: .git tiny (ROMs compress); --cycles 2.5M for CGB DS; CGB audio via --cgb --apu-activity.

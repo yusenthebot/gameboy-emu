@@ -1,5 +1,39 @@
 # Progress Log
 
+## Round 44 — frontier mapping (the CPU is already per-M-cycle) + expand (PASS 1842->1942)  [committed + pushed]
+
+### What I checked
+- WINDOW-penalty unlock (round-43 seed): empty. Only 1 non-vendored window DMG test exists and it's
+  m2int (sub-cycle). The window penalty would unlock ~nothing.
+- Surveyed the remaining gambatte fails (266-test DMG sample): 12 vendorable-passing, 254 fail. The
+  fails are dominated by sub-cycle STAT/IRQ timing (m2int, m3stat, lcdon, oamdma, lyc/m2 enable). No
+  resolvable M-cycle cluster remains — the easy wins are long done.
+
+### The key architectural finding (sharpens the whole frontier picture)
+- The CPU is ALREADY a per-M-cycle "tick-before-access" core: cpu.c `rd(a) = { tick(g,4); bus_read(a); }`,
+  `tick` advances timer/ppu/dma/apu/serial by 4 T-cycles at each memory M-cycle. So the PPU is observed
+  at M-cycle (4-dot) granularity at every access. The sub-cycle tail (lcdon's 2T lateness, m2int STAT
+  precedence, _ds_ audio) is therefore NOT a missing feature — it needs each access to be observed at a
+  sub-M-cycle T (T2 vs T4), which means a COHERENT T-cycle re-calibration: shift the access point AND
+  re-derive STAT_MODE_DELAY (8) + mode3_end together so the existing 1942 stay green and the sub-cycle
+  ones flip. Round 38's piecemeal lcdon (lcd_on_delay=2) broke 21 because it shifted one thing in
+  isolation. So the remaining frontier is exactly one delicate, global re-calibration.
+
+### What did NOT work / rejected
+- Window mode-3 penalty: no unlock (rejected after the survey).
+- Any piecemeal sub-cycle fix: round 38 proves it breaks the calibration. Must be coherent or not at all.
+
+### What landed
+- CGB expansion 1021 -> 1121. Gate 1842 -> 1942 (approaching 2000).
+
+### Frontier ladder (## Frontier)
+- The emulator is excellent + demonstrated: 1942 tests, M-cycle-accurate (tick-before-access), plays
+  games, validated FIFO pixel pipeline, full MBC/save/APU/CGB/double-speed/debugger/save-states/rewind.
+- THE remaining frontier: a coherent T-cycle re-calibration of the CPU access timing + PPU constants —
+  the only path to the deep sub-cycle tail. Delicate (touches the 1942 calibration); do it spike-then-
+  migrate on a SEPARATE validated path, migrate only when it passes strictly more. Risky to rush.
+- Reliable meanwhile: expansion (CGB ~600 headroom) keeps the count strictly rising. Cross 2000 next.
+
 ## Round 43 — FIFO integration analysis (no-op finding) + expand (PASS 1752->1842)  [committed + pushed]
 
 ### What I measured (de-risking the integration before touching the gate)
