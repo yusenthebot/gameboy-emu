@@ -115,6 +115,26 @@ static int ch_output(Apu *a, int c) {
     }
 }
 
+/* True unipolar DAC output (0..15) — used by the activity probe so that a channel
+ * frozen at a low duty position reads as silent (constant 0) regardless of the
+ * volume, matching real hardware. The 48kHz mix keeps the bipolar approximation. */
+static int ch_output_dac(Apu *a, int c) {
+    if (!a->ch_on[c] || !a->ch_dac[c]) return 0;
+    switch (c) {
+        case 0: case 1: {
+            u8 duty = a->reg[c == 0 ? 0x01 : 0x06] >> 6;
+            return ((DUTY[duty] >> a->sq_step[c]) & 1) ? a->env_vol[c] : 0;
+        }
+        case 2: {
+            u8 byte = a->wave[a->wv_pos >> 1];
+            int nib = (a->wv_pos & 1) ? (byte & 0xF) : (byte >> 4);
+            return nib >> WAVE_SH[(a->reg[0x0C] >> 5) & 3];
+        }
+        default:
+            return (~a->lfsr & 1) ? a->env_vol[3] : 0;
+    }
+}
+
 static void synth_tick(GB *g, int t) {
     Apu *a = &g->apu;
     for (int c = 0; c < 2; c++) {                    /* square ch1/ch2 */
@@ -144,10 +164,10 @@ static void synth_tick(GB *g, int t) {
             }
         }
     }
-    {   /* native-rate activity probe: sample the post-pan mix every tick */
+    {   /* native-rate activity probe: sample the post-pan unipolar DAC mix */
         int nr51 = a->reg[0x15], pl = 0, pr = 0;
         for (int c = 0; c < 4; c++) {
-            int o = ch_output(a, c);
+            int o = ch_output_dac(a, c);
             if (nr51 & (0x10 << c)) pl += o;
             if (nr51 & (1 << c))    pr += o;
         }

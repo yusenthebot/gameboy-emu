@@ -4,9 +4,19 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 30 (complete, committed + pushed) — GAMBATTE AUDIO TESTS (outaudio) — APU-verified (+41)
+ROUND: 31 (complete, committed + pushed) — APU UNIPOLAR DAC FIX (duty-pattern audio) (+17)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 438/438  (306 gambatte-DMG[incl 41 audio] + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 455/455  (323 gambatte-DMG[incl 58 audio] + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 31: TRACED ch1_duty0_pattern (disassembled it) — the loop re-triggers ch1 every ~106 cyc so the
+  frequency timer (reloaded on trigger) freezes the duty step at a position set by an initial delay;
+  low position -> silent, high -> sound (the NR12 volume toggle only shows at a HIGH duty bit). My APU's
+  ch_output was BIPOLAR (low bit = -v), so the volume toggle varied the LOW output -> false audio1. Fix:
+  the activity probe now uses the true UNIPOLAR DAC output (low bit = 0); 48kHz mix keeps bipolar (no
+  re-hash). Also made --apu-activity CYCLE-based (1053360 = 15 frames, LCD-independent, matches gambatte's
+  exit) so borderline tests are stable. DMG audio 41->58/89. +17. No regression.
+
+ROUND: 30 (complete, committed + pushed) — GAMBATTE AUDIO TESTS (outaudio) — APU-verified (+41)
+  Round 30: added gambatte audio test class (outaudio) + apu activity probe + --apu-activity.
   Round 30: added the GAMBATTE AUDIO test class (outaudio0=silent/constant, outaudio1=audio/varying).
   apu.c native-rate activity probe (post-pan L/R mix range per tick, immune to 48kHz aliasing) +
   --apu-activity (resets at the final frame, prints audio0/1). Fixed gambatte_check.py: outaudio was
@@ -198,15 +208,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 31): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) TRACE one ch1 duty-pattern audio fail (e.g. ch1_duty0_pattern_pos0 expects audio0 but my APU
-      gives audio1 = a channel sounding when it should be silent). Likely a length-counter or
-      trigger/DAC-enable timing bug -> fixing it flips a cluster of the ~48 remaining audio fails.
+NEXT ROUND SEED (round 32): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) The ~31 remaining DMG audio fails: trace another cluster (ch2/ch3/ch4 patterns, init_pos,
+      length-counter timing nr52). Each = real APU accuracy (the timing tail). Group by name first.
   (2) MINE a PPU category (enable_display LCD-on timing, lcdc mid-frame, window) — my PPU is strong,
-      likely a clean M-cycle-resolvable flip.
-  (3) EXPAND the digit batch (re-sweep, cap higher; ~900 passers). Safe +N; watch gate runtime/repo.
-  Lean (1) trace the duty-pattern audio bug (real APU accuracy, the timing tail) then (3) expand.
-  NOTE: --apu-activity probe works; gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.
+      likely a clean M-cycle-resolvable flip + many tests.
+  (3) EXPAND the digit batch (re-sweep, cap higher; ~900 passers exist). Safe +N; watch gate runtime
+      (~2.5min now) + repo size (8.3M).
+  Lean (2) a PPU category (probably a bigger, cleaner flip than the remaining audio sub-cycle cases).
+  NOTE: --apu-activity is cycle-based (robust). gambatte_check handles digit+outaudio. ROMs /tmp/gbtr_x/gambatte.
   (2) cgb-acid-hell pixel-perfect: the mid-frame SCY raster timing (HALT-wake + STAT-int + scy-write
       vs PPU sample; 2px). Confirmed mechanism: unrolled HALT;NOP;LD A,scy;LDH(42),A per line.
   (3) CGB compat palette for 0x80 DMG games (run in color on CGB) + boot_hwio-C (CGB HWIO values).

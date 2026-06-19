@@ -1,5 +1,30 @@
 # Progress Log
 
+## Round 31 — APU unipolar DAC fix (duty-pattern audio) (PASS 438->455)  [committed + pushed]
+
+### What was traced + fixed
+- Disassembled ch1_duty0_pattern_pos0 (expects audio0/silent, my APU gave audio1). Mechanism: it
+  triggers ch1 at a fast freq, delays B iterations (B varies per pos -> sets the duty step), then loops
+  re-triggering ch1 every ~106 cycles. Each trigger RELOADS the freq timer (which I already do) so the
+  duty step FREEZES at the delay-set position. The loop also toggles NR12 volume (8<->12). At a LOW duty
+  bit the channel should output 0 (silent) regardless of volume; at the HIGH bit it outputs the
+  toggling volume (varies). So low pos -> audio0, high pos -> audio1.
+- BUG: my ch_output was BIPOLAR (low bit -> -v, high bit -> +v). So at a low duty position the volume
+  toggle changed the output (-8 vs -12) -> falsely "varying" -> audio1. Real hardware is UNIPOLAR
+  (low bit -> 0). Fix: the activity probe now uses a true unipolar DAC helper (ch_output_dac); the
+  48kHz audio mix keeps the bipolar DC-free approximation, so the audio determinism hash is unchanged.
+- Also made --apu-activity CYCLE-based: run exactly 1053360 cycles (= 15 LCD frames, gambatte's stated
+  exit condition), reset the probe at the final frame. This is LCD-independent and made the sweep and
+  the gate agree (2 borderline tests had disagreed because frame-counting stalls when the LCD is off).
+
+### Verified
+- duty cluster pos0-6/pos8 -> audio0, pos7 -> audio1 (all correct). DMG audio 41 -> 58/89. Re-vendored
+  the 58. Gate 438 -> 455, no regression (digit tests, audio determinism, all green).
+
+### Frontier
+- ~31 DMG audio tests still fail (other channels' patterns, init_pos, length-counter nr52 timing) —
+  next APU-accuracy clusters. A PPU gambatte category is likely a bigger, cleaner flip.
+
 ## Round 30 — Gambatte AUDIO tests (outaudio), APU-verified (PASS 397->438)  [committed + pushed]
 
 ### What was built
