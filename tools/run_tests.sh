@@ -104,6 +104,18 @@ for spec in "${SAVESTATE[@]}"; do
     else fail=$((fail+1)); row "$name" "FAIL (nondeterministic)"; fi
 done
 
+# --- interactive frontend: gbplay (SDL2) must drive the engine to identical frames.
+#     Runs headless under the dummy video driver. Skipped if SDL2 is unavailable. ---
+if make play >/dev/null 2>&1; then
+    total=$((total+1))
+    SDL_VIDEODRIVER=dummy ./gbplay roms/games/libbet/libbet.gb --frames 600 --png /tmp/gbemu_play.png >/dev/null 2>&1
+    "$BIN" roms/games/libbet/libbet.gb --frames 600 --png /tmp/gbemu_playref.png --cycles 100000000 >/dev/null 2>&1
+    if cmp -s /tmp/gbemu_play.png /tmp/gbemu_playref.png; then pass=$((pass+1)); row "gbplay frontend (frame-match)" "PASS"
+    else fail=$((fail+1)); row "gbplay frontend (frame-match)" "FAIL"; fi
+else
+    row "gbplay frontend (SDL2 unavailable)" "SKIP"
+fi
+
 # --- Mooneye acceptance ROMs (LD B,B breakpoint + Fibonacci register signature) ---
 mooneye_pass=0
 while IFS= read -r rom; do

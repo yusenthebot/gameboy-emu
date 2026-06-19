@@ -1,5 +1,26 @@
 # Progress Log
 
+## Round 20 — INTERACTIVE PLAYABLE FRONTEND (PASS 122->123)  [committed + pushed]
+
+### What was built
+- src/play.c: an SDL2 frontend (`gbplay`). Scaled window, classic DMG green palette, keyboard ->
+  joypad (arrows / Z=A / X=B / Enter=Start / Shift=Select), F5/F9 quick save/load-state (reuses
+  round-19 save-states), ~59.7 fps pacing, Esc to quit. The window/renderer are optional so it
+  runs headless under SDL_VIDEODRIVER=dummy for verification.
+- Makefile split: gbemu (headless gate harness, src/main.c) and gbplay (SDL2, src/play.c) share
+  the core objects. SDL2 is pre-approved (sdl2-config; brew 2.32.10 already installed — no network).
+
+### Verified
+- gbplay drives the engine to BIT-IDENTICAL frames vs gbemu at frames 60/300/600 (libbet) under
+  the dummy video driver — a new gate test "gbplay frontend (frame-match)". Gate 122 -> 123.
+- gbemu + the full gate unaffected (123/123). Live window/audio needs a real display:
+  `make play && ./gbplay roms/games/libbet/libbet.gb` (owner runs it).
+
+### Notes
+- Audio not yet wired (next layer: APU sample generation + SDL_audio). The window display +
+  keyboard input themselves can't be verified headlessly (no display in the loop context), but
+  the engine integration + framebuffer output are verified; SDL blit/present are trusted library calls.
+
 ## Round 19 — SAVE-STATES (PASS 119->122, new dimension)  [committed + pushed]
 
 ### What happened

@@ -4,14 +4,18 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
+ROUND: 20 (complete, committed + pushed) — INTERACTIVE PLAYABLE FRONTEND (gbplay, +1)
+SUBSTRATE: C11 + clang  (gbemu headless harness + gbplay SDL2 frontend)
+PASS COUNT: 123/123  (15 serial + acid2 + 9 framehash + 2 game + 3 savestate + 1 frontend + 92 Mny/WP/SS)
+  Round 20: built src/play.c — SDL2 window (scaled, DMG green palette), keyboard->joypad
+  (arrows/Z/X/Enter/Shift), F5/F9 quick save/load-state, ~59.7fps pacing. Makefile splits
+  gbemu (gate harness) + gbplay (SDL2, pre-approved dep). Verified headlessly via SDL dummy
+  video: gbplay drives the engine to frames BIT-IDENTICAL to gbemu (gate test, frames 60/300/600).
+  The live window/audio runs on a real display: `make play && ./gbplay roms/games/libbet/libbet.gb`.
+  Audio (SDL_audio + APU sample gen) is the next layer. Fulfills "能玩" (human-playable).
+
 ROUND: 19 (complete, committed + pushed) — SAVE-STATES (new dimension, +3)
-SUBSTRATE: C11 + clang
-PASS COUNT: 122/122  (15 serial + acid2 + 9 framehash + 2 game + 3 savestate + 92 Mooneye/WP/SS)
-  Round 19: owner said be fully autonomous (don't ask) -> [[loop-full-autonomy]]. After the
-  sweep/hblank tail proved source/full-chain-dependent, pivoted to a NEW DIMENSION: save-states
-  (src/state.c) — full GB snapshot to a file (keeps live ROM/RAM buffers, restores banking+RAM).
-  CLI --save-state/--load-state. +3 determinism tests (libbet/dmg_sound/acid2: snapshot@S, resume
-  to T == straight run to T, bit-identical). Advances "即时存档/回放"; sets up rewind + the frontend.
+  Round 19: full GB snapshot (src/state.c), --save-state/--load-state, +3 determinism tests.
 
 ROUND: 18 (complete, committed local) — APU wave-channel research (gate FLAT, honest)
 SUBSTRATE: C11 + clang
@@ -101,16 +105,16 @@ REMAINING HARD TAIL (all +1-2, real engineering): sprite mode-3 penalty (FIFO fe
   (dmg_sound 09/10/12 — freq timer + DMG wave-RAM access window), lcdon_timing/write (first
   -frame mode-3), hblank_ly_scx (mode-0 IRQ +8?), boot_div (post-boot DIV timing), rapid_toggle.
 
-NEXT ROUND SEED (round 20): save-states done -> build on the new dimension OR start the frontend.
-  Strong options (DECIDE autonomously, don't ask — [[loop-full-autonomy]]):
-  (1) REWIND: ring-buffer of save-states (snapshot every K frames, step back). Verifiable: rewind
-      N then replay == original. Cheap given save-states exist. Advances "回放".
-  (2) Interactive frontend (minifb/SDL window + keyboard + cpal/SDL audio) — the big playability
-      dimension; pre-approved deps. Verify the engine headlessly (frame-hash) + a brief smoke
-      run; the live window/audio the owner runs (deliver via macOS `open`/a run command).
-  (3) MBC3 + battery .sav — broadens games (Pokemon-era); .sav round-trip is gate-verifiable.
-  (4) Back to the timing tail only if a clean approach appears (sweep needs Blargg source).
-  Recommend (2) frontend next (most impactful, pre-approved) or (1) rewind (cheapest verifiable +1).
+NEXT ROUND SEED (round 21): frontend video done -> AUDIO is the natural next layer (decide
+  autonomously, don't ask — [[loop-full-autonomy]]):
+  (1) AUDIO: generate APU samples (ch1/2 square via duty+freq timer, ch3 wave, ch4 noise LFSR)
+      mixed to a buffer; feed SDL_audio in gbplay. Verifiable headlessly: hash the generated
+      sample buffer for a fixed run (deterministic). Big "APU 声音" win + makes gbplay fully play.
+  (2) REWIND: ring-buffer of save-states in gbplay (hold a key to step back). Verifiable round-trip.
+  (3) MBC3 + battery .sav — broadens games; .sav round-trip gate-verifiable.
+  (4) A CLI debugger (breakpoints/step/mem-dump) — the "调试器" goal; verifiable.
+  Timing tail (sweep/wave/hblank/lcdon) only if a clean approach appears (sweep needs Blargg src).
+  Recommend (1) audio (completes the playable experience + APU goal, headlessly verifiable).
 
 GATES (pause + ask owner): new external dep beyond pre-approved set; any push/publish;
   changing public data formats. Pre-approved: clang, sdl2/minifb, cpal, free test ROMs.

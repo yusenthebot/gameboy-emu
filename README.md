@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-122%2F122%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-123%2F123%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -32,7 +32,7 @@ sub-instruction timing tests.
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **122/122 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **123/123 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -104,7 +104,7 @@ flowchart TB
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
 | `src/apu.c` | 220 | Sound: NRxx registers, NR52 power, 512Hz frame sequencer, length/envelope/sweep |
 | `src/timer.c` | 103 | DIV/TIMA/TMA/TAC with falling-edge detection and the reload-window quirks |
-| `src/main.c` | 103 | Headless entry point + the three test-harness modes |
+| `src/main.c (headless harness), src/play.c (SDL2 frontend), src/state.c (save-states),` | 103 | Headless entry point + the three test-harness modes |
 | `src/serial.c` | 50 | Link-port serial capture (the Blargg `Passed/Failed` channel) |
 | `src/gb.h` | 151 | Shared types and the single `GB` machine-state struct |
 
@@ -132,10 +132,10 @@ unlocks so many tests at once.
 
 ## Build & run
 
-Requires only a C11 compiler (clang or gcc). No external libraries.
+The headless emulator (`gbemu`) needs only a C11 compiler — no external libraries.
 
 ```sh
-make                                  # builds ./gbemu
+make                                  # builds ./gbemu (headless)
 
 # run a serial test ROM (exit 0 = Passed)
 ./gbemu roms/cpu_instrs.gb
@@ -146,9 +146,23 @@ make                                  # builds ./gbemu
 # run a Mooneye test (LD B,B breakpoint + register signature)
 ./gbemu roms/mooneye/acceptance/timer/tim00.gb --mooneye
 
+# snapshot the whole machine and resume bit-identically
+./gbemu game.gb --frames 100 --save-state s.gss
+./gbemu game.gb --frames 200 --load-state s.gss --png out.png
+
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 122/122
+./tools/run_tests.sh                  # -> PASS: 123/123
 ```
+
+### Play it (interactive SDL2 frontend)
+
+```sh
+make play                             # builds ./gbplay (needs SDL2)
+./gbplay roms/games/libbet/libbet.gb
+```
+
+Controls: **arrows** = D-pad, **Z** = A, **X** = B, **Enter** = Start,
+**Shift** = Select, **F5** = quick-save state, **F9** = load, **Esc** = quit.
 
 ## How tests are verified (no "looks right")
 
