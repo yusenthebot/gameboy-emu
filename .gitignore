@@ -5,3 +5,4 @@ src/*.o
 !docs/**/*.png
 !tests/refs/*.png
 .DS_Store
+roms/mbc3-tester/*.gb

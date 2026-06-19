@@ -208,11 +208,16 @@ static void render_scanline_cgb(GB *g, int y) {
     }
 }
 
+/* The standard DMG 4-shade grayscale, for the color framebuffer / --rgb dumps. */
+static const u32 DMG_GRAY[4] = {0xFFFFFF, 0xAAAAAA, 0x555555, 0x000000};
+
 static void render_scanline(GB *g, int y) {
     if (g->cgb) { render_scanline_cgb(g, y); return; }
     u8 bg_colnum[160];
     render_bg_window(g, y, bg_colnum);
     render_sprites(g, y, bg_colnum);
+    for (int x = 0; x < 160; x++)                 /* mirror shades into fb_rgb */
+        g->fb_rgb[y * 160 + x] = DMG_GRAY[g->fb[y * 160 + x] & 3];
 }
 
 /* Objects lengthen mode 3 (the pixel pipeline stalls to fetch each one). Pan Docs

@@ -30,7 +30,7 @@ while IFS= read -r rom; do
     res=$("$BIN" "$rom" 2>&1 | grep -oE "RESULT: [A-Z/]+" | head -1); res=${res#RESULT: }
     if [ "$res" = "PASS" ]; then pass=$((pass+1)); row "${rom#roms/}" "PASS"
     else fail=$((fail+1)); row "${rom#roms/}" "${res:-TIMEOUT}"; fi
-done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' | sort)
+done < <(find roms -name '*.gb' -not -path 'roms/acid2/*' -not -path 'roms/mooneye/*' -not -path 'roms/dmg_sound/*' -not -path 'roms/games/*' -not -path 'roms/mem_timing-2/*'  -not -path 'roms/wilbertpol/*' -not -path 'roms/same-suite/*' -not -path 'roms/mbc3-tester/*' -not -path 'roms/cgb-acid2/*' | sort)
 
 # --- image ROMs (rom:reference.png:frames) ---
 for spec in "roms/acid2/dmg-acid2.gb:tests/refs/dmg-acid2-ref.png:30"; do
@@ -48,6 +48,17 @@ total=$((total+1))
 if python3 tools/cgbcmp.py roms/cgb-acid2/cgb-acid2-ref.png /tmp/gbemu_cgb.rgb >/dev/null 2>&1; then
     pass=$((pass+1)); row "cgb-acid2 (color image)" "PASS"
 else fail=$((fail+1)); row "cgb-acid2 (color image)" "FAIL"; fi
+
+# --- MBC3/MBC30 banking: mbc3-tester pixel-diffed vs reference (needs the 4MB ROM; gitignored) ---
+if [ -f roms/mbc3-tester/mbc3-tester.gb ]; then
+    total=$((total+1))
+    "$BIN" roms/mbc3-tester/mbc3-tester.gb --frames 220 --rgb /tmp/gbemu_mbc3.rgb --cycles 80000000 >/dev/null 2>&1
+    if python3 tools/cgbcmp.py roms/mbc3-tester/mbc3-tester-ref.png /tmp/gbemu_mbc3.rgb >/dev/null 2>&1; then
+        pass=$((pass+1)); row "mbc3-tester (MBC30 banking)" "PASS"
+    else fail=$((fail+1)); row "mbc3-tester (MBC30 banking)" "FAIL"; fi
+else
+    row "mbc3-tester (4MB ROM absent — see README)" "SKIP"
+fi
 
 # --- framehash ROMs (rom:frames:sha256) verified visually once ---
 # Blargg dmg_sound subtests print "Passed" on screen (no serial); gated by frame hash.
@@ -110,6 +121,12 @@ for spec in "${SAVESTATE[@]}"; do
     if cmp -s "$base.straight" "$base.resumed"; then pass=$((pass+1)); row "$name" "PASS"
     else fail=$((fail+1)); row "$name" "FAIL (nondeterministic)"; fi
 done
+
+# --- battery .sav: cart RAM (+ MBC3 RTC) persists across a save/load round-trip ---
+total=$((total+1))
+if "$BIN" roms/mooneye/emulator-only/mbc1/ram_64kb.gb --sav-selftest 2>&1 | grep -q "RESULT: PASS"; then
+    pass=$((pass+1)); row "battery .sav round-trip" "PASS"
+else fail=$((fail+1)); row "battery .sav round-trip" "FAIL"; fi
 
 # --- rewind: in-memory snapshot round-trip + rewind/replay must be bit-identical ---
 total=$((total+1))

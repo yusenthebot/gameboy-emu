@@ -51,6 +51,8 @@ int cart_load(GB *gb, const char *path) {
         case 0x00:                         c->mbc = 0; break;
         case 0x01: case 0x02: case 0x03:   c->mbc = 1; break;
         case 0x05: case 0x06:              c->mbc = 2; break;
+        case 0x0F: case 0x10: case 0x11:
+        case 0x12: case 0x13:              c->mbc = 3; break;
         case 0x19: case 0x1A: case 0x1B:
         case 0x1C: case 0x1D: case 0x1E:   c->mbc = 5; break;
         default:
@@ -103,6 +105,30 @@ void cart_free(GB *gb) {
     gb->cart.ram = NULL;
 }
 
+/* Battery save: persist cartridge RAM (+ the MBC3 RTC) to a .sav file. The
+ * caller decides when to save (e.g. gbplay only for battery carts). */
+int cart_save_battery(GB *gb, const char *path) {
+    Cart *c = &gb->cart;
+    if (!c->ram || c->ram_size == 0) return 0;
+    FILE *f = fopen(path, "wb");
+    if (!f) return -1;
+    fwrite(c->ram, 1, c->ram_size, f);
+    if (c->mbc == 3) fwrite(c->rtc, 1, sizeof c->rtc, f);
+    fclose(f);
+    return 0;
+}
+
+int cart_load_battery(GB *gb, const char *path) {
+    Cart *c = &gb->cart;
+    if (!c->ram || c->ram_size == 0) return -1;
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    size_t n = fread(c->ram, 1, c->ram_size, f);
+    if (c->mbc == 3) { if (fread(c->rtc, 1, sizeof c->rtc, f) != sizeof c->rtc) {} }
+    fclose(f);
+    return (n == c->ram_size) ? 0 : -1;
+}
+
 static inline u8 rom_byte(Cart *c, int bank, u16 addr) {
     bank &= (c->rom_banks - 1);
     u32 off = (u32)bank * 0x4000 + (addr & 0x3FFF);
@@ -122,6 +148,11 @@ static int high_rom_bank(Cart *c) {
             if (b == 0) b = 1;
             return b;
         }
+        case 3: {
+            /* MBC3 is 7-bit; MBC30 (carts with >128 banks, e.g. 4MB) is 8-bit. */
+            int b = c->bank_lo & (c->rom_banks > 128 ? 0xFF : 0x7F);
+            return b ? b : 1;                      /* bank 0 reads as 1 */
+        }
         case 5:
             return (c->bank_hi << 8) | c->bank_lo; /* 9-bit, 0 is valid */
         default:
@@ -139,6 +170,7 @@ static int low_rom_bank(Cart *c) {
 static int ram_bank_num(Cart *c) {
     if (c->mbc == 1) return (c->mode == 1) ? c->bank_hi : 0;
     if (c->mbc == 5) return c->ram_bank & 0x0F;
+    if (c->mbc == 3) return c->ram_bank & 0x03;
     return 0;
 }
 
@@ -153,6 +185,8 @@ u8 cart_read(GB *gb, u16 addr) {
             /* 512 nibbles, echoed every 0x200; upper nibble reads as 1. */
             return 0xF0 | (c->ram[(addr & 0x1FF)] & 0x0F);
         }
+        if (c->mbc == 3 && c->ram_bank >= 0x08 && c->ram_bank <= 0x0C)  /* RTC register */
+            return c->ram_enable ? c->rtc[c->ram_bank - 0x08] : 0xFF;
         if (!c->ram || !c->ram_enable) return 0xFF;
         int rbank = ram_bank_num(c);
         if (c->ram_banks) rbank &= (c->ram_banks - 1);
@@ -186,6 +220,23 @@ void cart_write(GB *gb, u16 addr, u8 val) {
                 else               { c->ram_enable = (val & 0x0F) == 0x0A; } /* RAMG */
             } else if (addr >= 0xA000 && addr < 0xC000 && c->ram_enable) {
                 c->ram[(addr & 0x1FF)] = val & 0x0F;
+            }
+            return;
+
+        case 3:
+            if (addr < 0x2000)      c->ram_enable = (val & 0x0F) == 0x0A;  /* RAM+RTC enable */
+            else if (addr < 0x4000) c->bank_lo = val;                      /* ROM bank (masked in high_rom_bank) */
+            else if (addr < 0x6000) c->ram_bank = val;                     /* RAM bank 0-3 / RTC 8-C */
+            else if (addr < 0x8000) { /* latch clock data (static RTC: no-op) */ }
+            else if (addr >= 0xA000 && addr < 0xC000 && c->ram_enable) {
+                if (c->ram_bank >= 0x08 && c->ram_bank <= 0x0C) {
+                    c->rtc[c->ram_bank - 0x08] = val;
+                } else if (c->ram) {
+                    int rbank = ram_bank_num(c);
+                    if (c->ram_banks) rbank &= (c->ram_banks - 1);
+                    u32 off = (u32)rbank * 0x2000 + (addr & 0x1FFF);
+                    if (off < c->ram_size) c->ram[off] = val;
+                }
             }
             return;
 

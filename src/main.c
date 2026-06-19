@@ -24,7 +24,8 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0;
+    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0;
+    const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
     const char *load_state = NULL, *save_state = NULL, *audio_raw = NULL;
     u64 max_cycles = 350000000ULL;
@@ -37,6 +38,8 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
         else if (!strcmp(argv[i], "--debug")) debug = 1;
         else if (!strcmp(argv[i], "--rewind-selftest")) rewind_test = 1;
+        else if (!strcmp(argv[i], "--sav-selftest")) sav_selftest = 1;
+        else if (!strcmp(argv[i], "--sav") && i + 1 < argc) sav_path = argv[++i];
         else if (!strcmp(argv[i], "--keys") && i + 1 < argc) keys = argv[++i];
         else if (!strcmp(argv[i], "--load-state") && i + 1 < argc) load_state = argv[++i];
         else if (!strcmp(argv[i], "--save-state") && i + 1 < argc) save_state = argv[++i];
@@ -78,6 +81,25 @@ int main(int argc, char **argv) {
         cart_free(&gb);
         return 0;
     }
+
+    if (sav_selftest) {
+        /* Battery save round-trip: write a pattern to cart RAM (+RTC), save it,
+         * clear, reload, and verify it persisted bit-for-bit. */
+        Cart *c = &gb.cart;
+        if (!c->ram || c->ram_size == 0) { fprintf(stderr, "RESULT: FAIL (no cart RAM)\n"); return 1; }
+        for (size_t i = 0; i < c->ram_size; i++) c->ram[i] = (u8)(i * 7 + 3);
+        for (int i = 0; i < 5; i++) c->rtc[i] = (u8)(i + 1);
+        cart_save_battery(&gb, "/tmp/_gbemu_sav_selftest.sav");
+        memset(c->ram, 0, c->ram_size);
+        memset(c->rtc, 0, sizeof c->rtc);
+        int ok = cart_load_battery(&gb, "/tmp/_gbemu_sav_selftest.sav") == 0;
+        for (size_t i = 0; ok && i < c->ram_size; i++) if (c->ram[i] != (u8)(i * 7 + 3)) ok = 0;
+        if (c->mbc == 3) for (int i = 0; ok && i < 5; i++) if (c->rtc[i] != (u8)(i + 1)) ok = 0;
+        fprintf(stderr, "RESULT: %s\n", ok ? "PASS" : "FAIL");
+        cart_free(&gb);
+        return ok ? 0 : 1;
+    }
+    if (sav_path) cart_load_battery(&gb, sav_path);   /* resume from a battery save */
 
     if (rewind_test) {
         /* (a) snapshot/restore must round-trip exactly; (b) a rewind to an earlier

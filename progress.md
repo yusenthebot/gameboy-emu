@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 25 — MBC3/MBC30 + RTC + BATTERY SAVES (PASS 127->129)  [committed + pushed]
+
+### What was built
+- MBC3 (cart.c, type 0x0F-0x13 -> mbc=3): ROM bank 7-bit, RAM bank (0-3) / RTC register select
+  (0x08-0x0C), RTC[5] registers + latch (static), RAM/RTC enable. MBC30 (8-bit ROM bank) auto-used
+  for carts with >128 banks (the 4MB mbc3-tester) — this was the key to passing it.
+- Battery saves: cart_save_battery / cart_load_battery persist cart RAM (+ MBC3 RTC) to a .sav.
+  gbplay auto-loads <rom>.sav on start and saves on exit for battery carts. gbemu --sav loads one.
+- DMG render now mirrors gb.fb shades into fb_rgb (DMG_GRAY palette) so --rgb / cgbcmp work for DMG
+  ROMs too (needed for the mbc3-tester image diff).
+
+### Verified
+- +mbc3-tester (MBC30 banking): rendered + pixel-diffed vs the official reference = **0/23040** at
+  220 frames (the MBC30 8-bit fix moved it from 1280 mismatches in the bottom half -> 0). 4MB ROM is
+  gitignored; the gate test skips if absent. +battery .sav round-trip (--sav-selftest: pattern ->
+  save -> clear -> load -> verify). Gate 127 -> 129, no regression.
+
+### What did NOT work first / lesson
+- First detection treated the 4MB mbc3-tester as regular 7-bit MBC3 -> banks 0x80-0xFF aliased the
+  top half -> the whole bottom half of the grid was wrong (1280 mismatches). It's MBC30 (8-bit).
+- The new roms/mbc3-tester/*.gb tripped the serial-sweep double-count trap (TIMEOUT) -> excluded it
+  (and roms/cgb-acid2) from the serial find, as with the other ROM dirs.
+
 ## Round 24 — CGB (Game Boy Color) PPU — cgb-acid2 PERFECT (PASS 126->127)  [committed + pushed]
 
 ### What was built (CGB color rendering — past the goal list into breadth)

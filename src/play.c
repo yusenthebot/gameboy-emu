@@ -55,6 +55,12 @@ int main(int argc, char **argv) {
     if (cart_load(&gb, path) != 0) return 2;
     cpu_init_postboot(&gb);
 
+    /* battery save: resume from <rom>.sav, and persist it on exit */
+    char savpath[1200];
+    snprintf(savpath, sizeof savpath, "%s.sav", path);
+    if (gb.cart.has_battery && cart_load_battery(&gb, savpath) == 0)
+        fprintf(stderr, "[loaded battery save %s]\n", savpath);
+
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 1;
@@ -160,6 +166,8 @@ int main(int argc, char **argv) {
         else next = now;
     }
 
+    if (gb.cart.has_battery && cart_save_battery(&gb, savpath) == 0)
+        fprintf(stderr, "[saved battery %s]\n", savpath);
     free(pix);
     free(rewind_ring);
     if (adev) SDL_CloseAudioDevice(adev);

@@ -49,8 +49,9 @@ typedef struct Cart {
     bool ram_enable;
     u8  bank_lo;        /* MBC1: 5-bit BANK1 · MBC2: 4-bit ROM bank · MBC5: ROM bank low 8 */
     u8  bank_hi;        /* MBC1: 2-bit BANK2 · MBC5: ROM bank bit 8 */
-    u8  ram_bank;       /* MBC5: 4-bit RAM bank */
+    u8  ram_bank;       /* MBC5: 4-bit RAM bank · MBC3: RAM bank (0-3) or RTC select (8-C) */
     u8  mode;           /* MBC1: 0 = ROM banking, 1 = RAM/advanced banking */
+    u8  rtc[5];         /* MBC3 real-time clock: S, M, H, DL, DH */
     char title[17];
     bool has_battery;
 } Cart;
@@ -168,6 +169,8 @@ int  cart_load(GB *gb, const char *path);
 void cart_free(GB *gb);
 u8   cart_read(GB *gb, u16 addr);
 void cart_write(GB *gb, u16 addr, u8 val);
+int  cart_save_battery(GB *gb, const char *path);   /* persist cart RAM (+RTC) */
+int  cart_load_battery(GB *gb, const char *path);
 
 /* bus.c */
 u8   bus_read(GB *gb, u16 addr);

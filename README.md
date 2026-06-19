@@ -6,7 +6,7 @@ dependencies — the whole core is ~1,700 lines of C and the test harness is ful
 automated.
 
 ![language](https://img.shields.io/badge/language-C11-blue)
-![tests](https://img.shields.io/badge/tests-127%2F127%20green-brightgreen)
+![tests](https://img.shields.io/badge/tests-129%2F129%20green-brightgreen)
 ![mooneye](https://img.shields.io/badge/Mooneye-51%2F66%20acceptance%20%2B%2027%2F28%20MBC-success)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
@@ -28,12 +28,13 @@ sub-instruction timing tests.
 | **cgb-acid2** (Game Boy **Color** PPU) | **0 / 23040** pixel mismatches, in color |
 | **Mooneye-GB acceptance (DMG)** | **51 / 66** |
 | **Mooneye-GB MBC** (MBC1/2/5) | **27 / 28** |
+| **mbc3-tester** (MBC30 banking) | 0 mismatches vs reference |
 | **Blargg `dmg_sound`** (APU) | **5 / 12** subtests |
 | **Wilbert Pol** suite (extended PPU) | **54 / 102** DMG |
 | **SameSuite** (SameBoy's suite) | 2 DMG (APU/wave) |
 | **Real homebrew game** (libbet) | renders title + plays on scripted input |
 
-The full regression gate is **127/127 green** (`tools/run_tests.sh`). Every check is
+The full regression gate is **129/129 green** (`tools/run_tests.sh`). Every check is
 automated — no human in the loop, no "looks correct."
 
 ## It runs real games
@@ -87,7 +88,7 @@ flowchart TB
         T5["apu.c<br/>4 channels, frame seq"]
     end
 
-    BUS --> CART["cart.c<br/>MBC1/2/5 + RAM"]
+    BUS --> CART["cart.c<br/>MBC1/2/3/5 + RAM/RTC"]
     T2 --> FB["framebuffer 160×144"]
     FB --> PNG["png.c<br/>grayscale PNG"]
     CART -.-> BUS
@@ -100,7 +101,7 @@ flowchart TB
 |------|------:|----------------|
 | `src/cpu.c` | 451 | SM83 core: every opcode, exact flags, interrupt dispatch, the per-M-cycle clock |
 | `src/ppu.c` | 244 | Scanline PPU: BG, window, sprites, priorities, palettes, mode/STAT timing → 160×144 |
-| `src/cart.c` | 208 | Cartridge loading, header parsing, MBC1/2/5 banking + external RAM |
+| `src/cart.c` | 208 | Cartridge loading, header parsing, MBC1/2/3/5 banking + RTC + external RAM |
 | `src/bus.c` | 119 | System memory map, I/O register dispatch, cycle-accurate OAM DMA |
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
 | `src/apu.c` | 330 | Sound: NRxx registers, frame sequencer, length/envelope/sweep + square/wave/noise synthesis to 48kHz PCM |
@@ -156,7 +157,7 @@ make                                  # builds ./gbemu (headless)
 ./gbemu game.gb --frames 200 --load-state s.gss --png out.png
 
 # the full regression gate
-./tools/run_tests.sh                  # -> PASS: 127/127
+./tools/run_tests.sh                  # -> PASS: 129/129
 ```
 
 ### Play it (interactive SDL2 frontend)
