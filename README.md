@@ -104,7 +104,9 @@ flowchart TB
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
 | `src/apu.c` | 220 | Sound: NRxx registers, NR52 power, 512Hz frame sequencer, length/envelope/sweep |
 | `src/timer.c` | 103 | DIV/TIMA/TMA/TAC with falling-edge detection and the reload-window quirks |
-| `src/main.c (headless harness), src/play.c (SDL2 frontend), src/state.c (save-states),` | 103 | Headless entry point + the three test-harness modes |
+| `src/main.c` | 145 | Headless entry point: serial / frame-dump / mooneye / save-state modes |
+| `src/play.c` | 130 | Interactive SDL2 frontend (`gbplay`): window, keyboard → joypad, save-state hotkeys |
+| `src/state.c` | 60 | Save-states: full machine snapshot to a file + restore |
 | `src/serial.c` | 50 | Link-port serial capture (the Blargg `Passed/Failed` channel) |
 | `src/gb.h` | 151 | Shared types and the single `GB` machine-state struct |
 
