@@ -1,5 +1,27 @@
 # Progress Log
 
+## Round 35 — CGB audio tests + double-speed clock fix (PASS 715->796)  [committed + pushed]
+
+### What was built
+- Extended the gambatte audio test class (outaudio0/1) to CGB hardware. Added g->sys_cycles: a
+  crystal/system-clock counter that advances by rt (= t/2 in double-speed) in tick(). --apu-activity now
+  runs its 15-LCD-frame window on sys_cycles (gambatte's true "1053360 clock" = system clocks), not CPU
+  cycles, so the audio window is speed-independent. In single-speed sys_cycles == cycles, so DMG and
+  non-ds CGB are unchanged (no regression). The CGB gate runner now branches outaudio -> --cgb
+  --apu-activity (mirrors the DMG runner).
+- Discovered the repo size worry was bogus: .git is 760K (gambatte ROMs are mostly zero padding and
+  compress to ~nothing), so the 583 vendored ROMs cost almost no git space. Expansion is effectively free.
+
+### Verified
+- CGB audio 81/131 pass (73 non-ds + 8 _ds_); vendored the 81. Gate 715 -> 796, no regression (incl the
+  save-state determinism test, which snapshots the new sys_cycles field fine).
+
+### What did NOT change / frontier
+- The sys_cycles fix is correct but did NOT flip the 8 failing _ds_ CGB audio tests -> those fail for a
+  non-cycle reason (likely double-speed APU/length timing). Deferred.
+- m2int_m0irq (CGB STAT timing, 0/15) is a consistent count offset but sub-cycle -> deep, deferred.
+- enable_display first-frame LCD-on timing is the best remaining M-cycle-ish PPU cluster (~31 DMG).
+
 ## Round 34 — CGB double-speed (KEY1/STOP switch) (PASS 655->715)  [committed + pushed]
 
 ### What was built

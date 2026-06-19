@@ -168,7 +168,8 @@ typedef struct GB {
     u8 buttons;             /* bit set = pressed */
 
     /* Timing / control */
-    u64 cycles;             /* total T-cycles elapsed */
+    u64 cycles;             /* total CPU T-cycles elapsed (2x crystal in double-speed) */
+    u64 sys_cycles;         /* crystal/system clocks (LCD time), speed-independent */
 
     /* Serial capture for headless test harness */
     char serial_log[1 << 16];

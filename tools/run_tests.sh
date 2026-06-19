@@ -157,10 +157,16 @@ done < <(find roms/gambatte \( -name '*.gb' -o -name '*.gbc' \) 2>/dev/null | so
 #     are black/white so they mask to the font identically regardless of RGB formula. ---
 cpass=0; ctot=0
 while IFS= read -r crom; do
-    ctot=$((ctot+1)); total=$((total+1))
-    "$BIN" "$crom" --cgb --frames 15 --rgb /tmp/gembc.rgb --cycles 2500000 >/dev/null 2>&1
-    if python3 tools/gambatte_check.py "$(basename "$crom")" /tmp/gembc.rgb cgb >/dev/null 2>&1; then
-        cpass=$((cpass+1)); pass=$((pass+1))
+    ctot=$((ctot+1)); total=$((total+1)); cb_name=$(basename "$crom")
+    if [[ "$cb_name" == *outaudio* ]]; then
+        want=$(echo "$cb_name" | grep -oE "cgb04c_outaudio[01]" | head -1 | grep -oE "[01]$")
+        got=$("$BIN" "$crom" --cgb --apu-activity 2>/dev/null | grep -oE "audio[01]" | grep -oE "[01]")
+        [ "$want" = "$got" ] && cok=1 || cok=0
+    else
+        "$BIN" "$crom" --cgb --frames 15 --rgb /tmp/gembc.rgb --cycles 2500000 >/dev/null 2>&1
+        python3 tools/gambatte_check.py "$cb_name" /tmp/gembc.rgb cgb >/dev/null 2>&1 && cok=1 || cok=0
+    fi
+    if [ "$cok" = 1 ]; then cpass=$((cpass+1)); pass=$((pass+1))
     else fail=$((fail+1)); row "gambatte-cgb ${crom#roms/gambatte-cgb/}" "FAIL"; fi
 done < <(find roms/gambatte-cgb \( -name '*.gb' -o -name '*.gbc' \) 2>/dev/null | sort)
 [ "$ctot" -gt 0 ] && row "gambatte CGB suite" "$cpass/$ctot"

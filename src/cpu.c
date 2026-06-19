@@ -36,6 +36,7 @@ static inline void tick(GB *g, int t) {
      * and serial are CPU-clocked (full t). Original tick order preserved. */
     int rt = g->double_speed ? (t >> 1) : t;
     g->cycles += t;
+    g->sys_cycles += rt;              /* crystal time: tracks LCD/audio frames */
     timer_tick(g, t);
     ppu_tick(g, rt);
     dma_tick(g, t);

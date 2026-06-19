@@ -214,10 +214,10 @@ int main(int argc, char **argv) {
         /* Gambatte outaudio: run a fixed 15 LCD frames (1053360 clock cycles, the
          * suite's exit condition — LCD-independent), measuring whether the APU
          * output varies over the final frame (audio1) or is constant (audio0). */
-        const u64 FRAME_CYC = 70224, TOTAL = 15 * 70224;
+        const u64 FRAME_CYC = 70224, TOTAL = 15 * 70224;   /* crystal clocks (gambatte's exit) */
         int reset_done = 0;
-        while (gb.cycles < TOTAL) {
-            if (!reset_done && gb.cycles >= TOTAL - FRAME_CYC) { apu_activity_reset(); reset_done = 1; }
+        while (gb.sys_cycles < TOTAL) {
+            if (!reset_done && gb.sys_cycles >= TOTAL - FRAME_CYC) { apu_activity_reset(); reset_done = 1; }
             cpu_step(&gb);
         }
         printf("RESULT: %s\n", apu_activity_varied() ? "audio1" : "audio0");
