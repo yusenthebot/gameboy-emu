@@ -102,7 +102,7 @@ flowchart TB
 | `src/cart.c` | 208 | Cartridge loading, header parsing, MBC1/2/5 banking + external RAM |
 | `src/bus.c` | 119 | System memory map, I/O register dispatch, cycle-accurate OAM DMA |
 | `src/png.c` | 112 | Dependency-free grayscale PNG writer (for frame dumps / diffs) |
-| `src/apu.c` | 220 | Sound: NRxx registers, NR52 power, 512Hz frame sequencer, length/envelope/sweep |
+| `src/apu.c` | 330 | Sound: NRxx registers, frame sequencer, length/envelope/sweep + square/wave/noise synthesis to 48kHz PCM |
 | `src/timer.c` | 103 | DIV/TIMA/TMA/TAC with falling-edge detection and the reload-window quirks |
 | `src/main.c` | 145 | Headless entry point: serial / frame-dump / mooneye / save-state modes |
 | `src/play.c` | 130 | Interactive SDL2 frontend (`gbplay`): window, keyboard → joypad, save-state hotkeys |
