@@ -1,5 +1,28 @@
 # Progress Log
 
+## Round 29 — OAM DMA bus conflict + gambatte expand (PASS 262->397)  [committed + pushed]
+
+### What was built
+- Mined gambatte/oamdma (84/343 passing) for its shared root cause: the OAM DMA BUS CONFLICT. While
+  the 160-cycle OAM DMA runs, the DMA drives one bus (external = cart/SRAM/WRAM if src<0x8000 or
+  >=0xA000; VRAM if src 0x8000-0x9FFF). A CPU read from an address on that SAME bus (addr<0xFE00)
+  returns the byte the DMA is mid-transfer (gb->dma_bus_val), not the addressed memory. OAM/HRAM/IO
+  are off both buses (already correct). bus.c: dma_tick records dma_bus_val + a dma_reading guard so
+  the DMA's own source fetch is exempt; the conflict check sits at the top of bus_read.
+- Expanded the vendored gambatte gate 130 -> 265 ROMs (cap 12/category, 38 categories).
+
+### Verified
+- oamdma 84 -> 92 (+8). Full gate 262 -> 397, no regression (the bus conflict only fires on a
+  same-bus CPU read during an active DMA — a narrow case; mooneye oam_dma + libbet unaffected).
+
+### What did NOT work / lesson
+- The remaining ~250 oamdma tests need SUB-M-CYCLE precision (which exact byte the DMA drives at the
+  exact T within an M-cycle, for pop/push/rst bus timing). My tick is M-cycle-granular, so it can't
+  resolve those — a hard ceiling without a finer pipeline. +8 is near the M-cycle-model limit here.
+- LESSON: gambatte categories cluster around one hardware behavior; mine the behavior, not each test.
+  But sub-cycle categories (oamdma) are capped by the tick granularity — pick categories whose bug is
+  M-cycle-resolvable (sound/enable_display) for a bigger flip.
+
 ## Round 28 — GAMBATTE TEST SUITE (DMG): a new rigorous dimension (PASS 132->262)  [committed + pushed]
 
 ### What was built

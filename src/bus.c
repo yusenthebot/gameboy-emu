@@ -49,7 +49,11 @@ void dma_tick(GB *gb, int tcycles) {
             }
         }
         if (gb->dma_running && gb->dma_pos < 160) {
-            gb->oam[gb->dma_pos] = bus_read(gb, gb->dma_src + gb->dma_pos);
+            gb->dma_reading = true;                              /* exempt from bus conflict */
+            u8 b = bus_read(gb, gb->dma_src + gb->dma_pos);
+            gb->dma_reading = false;
+            gb->dma_bus_val = b;                                /* value now driving the bus */
+            gb->oam[gb->dma_pos] = b;
             if (++gb->dma_pos >= 160) gb->dma_running = false;
         }
     }
@@ -107,6 +111,15 @@ void hdma_hblank_step(GB *gb) {
 }
 
 u8 bus_read(GB *gb, u16 addr) {
+    /* OAM DMA bus conflict: while the DMA is running, a CPU read from the same
+     * bus the DMA is using (external = cart/SRAM/WRAM, or VRAM) returns the byte
+     * the DMA is currently transferring, not the addressed memory. OAM/HRAM/IO
+     * are off these buses. The DMA's own source fetch is exempt (dma_reading). */
+    if (gb->dma_running && !gb->dma_reading && addr < 0xFE00) {
+        int dma_vram  = (gb->dma_src >= 0x8000 && gb->dma_src < 0xA000);
+        int addr_vram = (addr >= 0x8000 && addr < 0xA000);
+        if (dma_vram == addr_vram) return gb->dma_bus_val;
+    }
     if (addr < 0x8000) return cart_read(gb, addr);
     if (addr < 0xA000) return ppu_vram_accessible(gb)
         ? gb->vram[(gb->vbk & 1) * 0x2000 + (addr - 0x8000)] : 0xFF;

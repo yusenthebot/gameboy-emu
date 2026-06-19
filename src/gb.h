@@ -158,6 +158,8 @@ typedef struct GB {
     int dma_pos;            /* next byte index 0..160 (160 = done) */
     int dma_start;          /* startup-delay M-cycles before (re)start */
     bool dma_running;       /* transfer in progress -> OAM locked to CPU */
+    u8  dma_bus_val;        /* last byte the DMA read (seen on bus conflicts) */
+    bool dma_reading;       /* guard: the DMA's own source fetch (no conflict) */
 
     /* Joypad */
     u8 joyp_select;

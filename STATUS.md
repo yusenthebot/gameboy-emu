@@ -4,9 +4,17 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 28 (complete, committed + pushed) — GAMBATTE TEST SUITE (DMG) — NEW DIMENSION (+130)
+ROUND: 29 (complete, committed + pushed) — OAM DMA BUS CONFLICT + gambatte expand 130->265 (+135)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 262/262  (130 gambatte-DMG + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+PASS COUNT: 397/397  (265 gambatte-DMG + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + 3 ss + audio + front + dbg + rewind + 92)
+  Round 29: REAL BUG MINED from gambatte/oamdma (was 84/343) — the OAM DMA BUS CONFLICT: while the DMA
+  runs, a CPU read from the same bus the DMA uses (external=cart/SRAM/WRAM, or VRAM) returns the byte
+  the DMA is mid-transfer (bus.c: dma_bus_val + dma_reading guard; conflict at top of bus_read on
+  same-bus addr<0xFE00). oamdma 84->92 (+8; the rest need sub-M-cycle precision my tick can't model).
+  Then EXPANDED the vendored gambatte batch 130->265 (cap 12/category, 38 cats) -> +135. No regression.
+
+ROUND: 28 (complete, committed + pushed) — GAMBATTE TEST SUITE (DMG) — NEW DIMENSION (+130)
+  Round 28: integrated gambatte suite; gambatte_check.py decodes hex-digit result tiles vs expected.
   Round 28: integrated the GAMBATTE test suite (3524 ROMs, pokemon-speedrunning/gambatte-core). Each
   runs 15 frames then renders its result as hex-digit 8x8 tiles at the top-left; tools/gambatte_check.py
   decodes them (font fetched from testrunner.cpp via gh api) + compares to the expected value in the
@@ -179,15 +187,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 29): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
-  (1) EXPAND the gambatte gate: sweep all 1740 DMG ROMs, vendor the rest of the ~900 passers (mind
-      gate runtime + repo size — maybe cap ~300 and grow each round). Pure strict-increase, cheap.
-  (2) MINE failing gambatte categories for real accuracy: oamdma (13/41), sound (4/18), m1statwirq,
-      enable_display — each fail is a precise timing bug to fix (the real frontier; raises pass rate).
-  (3) CGB gambatte: add the gambatte CGB RGB formula (R*13+G*2+B)/2 etc. to a --gambatte-cgb compare,
-      unlock cgb04c_out tests (another ~1500 ROMs).
-  (4) Double-speed + HDMA precision (same-suite dma/*); cgb-acid-hell scy 2px.
-  Lean (2)+(1): mine a failing category for a real bug, then expand the vendored batch. ROMs: /tmp/gbtr_x/gambatte.
+NEXT ROUND SEED (round 30): decide autonomously, don't ask ([[loop-full-autonomy]]). Options:
+  (1) MINE another failing gambatte category for a real bug: sound (APU reads/length/envelope —
+      coherent + my APU is partial), enable_display (LCD-on timing), window/scx (PPU). Each = real
+      accuracy + flips a cluster. THE FRONTIER (timing tail).
+  (2) EXPAND the vendored batch further (cap higher / sweep all 1740; ~900 passers exist). Cheap +N
+      but watch gate runtime (~265 already ~2min) + repo size (8.3M). Maybe a SEPARATE slow-gate.
+  (3) CGB gambatte: add the gambatte CGB RGB formula to gambatte_check (mode cgb) — ~1500 more ROMs.
+  Lean (1) mine the sound category (real APU accuracy) — biggest coherent failing cluster after oamdma.
+  NOTE: oamdma sub-M-cycle precision is capped by the M-cycle-granular tick (got the basic conflict +8).
   (2) cgb-acid-hell pixel-perfect: the mid-frame SCY raster timing (HALT-wake + STAT-int + scy-write
       vs PPU sample; 2px). Confirmed mechanism: unrolled HALT;NOP;LD A,scy;LDH(42),A per line.
   (3) CGB compat palette for 0x80 DMG games (run in color on CGB) + boot_hwio-C (CGB HWIO values).
