@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
         return 2;
     }
     const char *path = argv[1];
-    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0;
+    int frames = 0, mooneye = 0, debug = 0, rewind_test = 0, sav_selftest = 0, force_cgb = 0, gbmicro = 0;
     int wram_selftest = 0, hdma_selftest = 0, apu_activity = 0, fifo_selftest = 0;
     const char *sav_path = NULL;
     const char *png_path = NULL, *raw_path = NULL, *keys = NULL, *rgb_path = NULL;
@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--raw") && i + 1 < argc) raw_path = argv[++i];
         else if (!strcmp(argv[i], "--rgb") && i + 1 < argc) rgb_path = argv[++i];
         else if (!strcmp(argv[i], "--mooneye")) mooneye = 1;
+        else if (!strcmp(argv[i], "--gbmicro")) gbmicro = 1;
         else if (!strcmp(argv[i], "--debug")) debug = 1;
         else if (!strcmp(argv[i], "--rewind-selftest")) rewind_test = 1;
         else if (!strcmp(argv[i], "--sav-selftest")) sav_selftest = 1;
@@ -264,6 +265,15 @@ int main(int argc, char **argv) {
         fprintf(stderr, "RESULT: %s\n", result == 0 ? "PASS" : "FAIL");
         cart_free(&gb);
         return result;
+    }
+
+    if (gbmicro) {
+        /* GBMicrotest: results at FF80-FF82; FF82 = 0x01 pass / 0xFF fail. Run until
+         * FF82 is set (most finish in 2 frames; is_if_set needs ~23), generous cap. */
+        while (gb.frame_count < 40 && gb.hram[2] == 0) cpu_step(&gb);
+        fprintf(stderr, "RESULT: %s\n", gb.hram[2] == 0x01 ? "PASS" : "FAIL");
+        cart_free(&gb);
+        return gb.hram[2] == 0x01 ? 0 : 1;
     }
 
     if (apu_activity) {

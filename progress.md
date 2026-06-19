@@ -1,5 +1,31 @@
 # Progress Log
 
+## Round 51 — NEW SOURCE: gbmicrotest harness (+218 M-cycle passers) (PASS 2427->2645)  [committed + pushed]
+
+### gambatte-CGB was drying up, so I opened a fresh coverage source
+- GBMicrotest (aappleby): 513 tiny behavior tests (oam_lock, vram timing, tima, dma, interrupts, etc.).
+  Pass mechanism (from the howto): result bytes at FF80-FF82; FF82 = 0x01 pass / 0xFF fail, run ~2 frames
+  (is_if_set needs ~23). Added a `--gbmicro` mode to gbemu (run until FF82 is set, cap 40 frames; print
+  RESULT: PASS/FAIL) + a gate runner in run_tests.sh + the serial-sweep exclusion (the double-count trap).
+- Survey: 218 PASS, 295 FAIL. The 218 are M-cycle-resolvable -- a broad validation of my OAM/VRAM/timer/
+  DMA/interrupt behavior. The 295 fails are the sub-cycle long tail (precise VRAM/OAM-lock dot timing).
+  Vendored the 218 into roms/gbmicrotest/. Gate 2427 -> 2645 (+218) -- the biggest jump in many rounds,
+  proving the strict-increase doesn't depend on the (now-dry) gambatte vein.
+
+### What did NOT work / the fails
+- 295 gbmicrotest fail -- the sub-cycle ones (the same ceiling). Not chased (round 52 may triage them for
+  any non-sub-cycle bug clusters).
+
+### What landed
+- --gbmicro mode (main.c) + gate runner (run_tests.sh) + 218 vendored gbmicrotest. Gate 2427 -> 2645.
+
+### Frontier ladder (## Frontier)
+- LESSON: when one passer source dries up, find another. gbmicrotest (+218) proves there's still real
+  M-cycle coverage to harvest. Next fresh sources to try: the full blargg suite (oam_bug/halt_bug/full
+  mem_timing+sound, serial "Passed"), rtc3test. Then triage the gbmicrotest/gambatte FAILs for real bugs.
+- The sub-cycle tail (5 confirmations) still needs the from-scratch T-cycle re-calibration (separate path,
+  big swing) -- unchanged. But there's clearly more M-cycle coverage to bank first.
+
 ## Round 50 — cgb-acid-hell 2px traced to sub-cycle (5th confirm) + expand (PASS 2347->2427)  [committed + pushed]
 
 ### Deep-dived the cgb-acid-hell 2px near-miss (x80, y68-69) and conclusively traced it

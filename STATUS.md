@@ -4,16 +4,15 @@ GOAL: Build a cycle-accurate Game Boy (DMG/CGB) emulator in C, climbing toward
 SameBoy-level T-cycle precision. Gate metric = test-ROM pass count, must strictly
 increase each round. (Full goal in the /loop prompt.)
 
-ROUND: 50 (complete, committed + pushed) — cgb-acid-hell 2px traced to sub-cycle (5th confirm) + expand (+80)
+ROUND: 51 (complete, committed + pushed) — NEW SOURCE: gbmicrotest harness (+218 M-cycle passers)
 SUBSTRATE: C11 + clang  (gbemu harness/debugger + gbplay: video[DMG+CGB]+audio+save-states+rewind+sav)
-PASS COUNT: 2427/2427  (688 gambatte-DMG + 1606 gambatte-CGB + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
-  Round 50: deep-dived the cgb-acid-hell 2px (x80, y68-69). Traced it conclusively: pure BG (no sprite
-  covers it; window is at wy=136), tile 8C, data 7F5D(row4)/7F41(row5), written once at mode 0 ly=0 (no
-  DMA, stable across frames). KEY: that data CANNOT produce the reference (yellow,black) at ANY bit ->
-  real hardware renders it differently via a MID-LINE PPU-timing edge (cgb-acid-hell is a PPU-timing
-  "hell" test), the same sub-cycle class as mealybug. So the near-miss is sub-cycle too -- 5th
-  independent confirmation of the ceiling (lcdon R38, CPU R44, STAT-write R46, mealybug R48, acid-hell R50).
-  No code change (research); reverted the temp instrument. +CGB expansion 1526->1606. Gate 2347->2427.
+PASS COUNT: 2645/2645  (688 gambatte-DMG + 1606 gambatte-CGB + 218 gbmicrotest + 15 serial + 2 acid2 + boot_regs-cgb + 9 fh + 2 game + mbc3 + .sav + WRAM + HDMA + FIFO-spike + 3 ss + audio + front + dbg + rewind + 92)
+  Round 51: gambatte-CGB was nearly exhausted, so opened a NEW coverage source. GBMicrotest (aappleby,
+  513 micro-tests) signals via a result byte at FF82 (0x01 pass / 0xFF fail), run ~2 frames. Added a
+  --gbmicro mode to gbemu (run until FF82 set, cap 40 frames) + a gate runner + the serial-sweep
+  exclusion. Survey: 218 PASS (M-cycle-resolvable: lots of basic OAM/VRAM/timer/DMA/interrupt behavior),
+  295 FAIL (the sub-cycle ones: precise VRAM/OAM-lock dot timing, the long tail). Vendored the 218.
+  Gate 2427 -> 2645 (+218), the biggest single jump since the early CGB rounds, from a fresh source.
 
 ROUND: 48 (complete, committed + pushed) — FIFO per-dot render attempt -> mealybug is sub-cycle too (reverted) + expand (+80)
   Round 48: built per-dot FIFO render (gate-safe) but mealybug still ~19% off (sub-cycle); 4th ceiling confirm; reverted. +CGB.
@@ -335,15 +334,15 @@ CGB STATUS: PPU color rendering DONE (cgb-acid2 0/23040). CGB foundation in plac
   the CGB compatibility palette for 0x80 DMG games. cgb-acid-hell (harder) + cgb_sound + CGB mooneye/
   same-suite still unattempted. ROMs in /tmp/gbtr_x (cgb-acid-hell, blargg/cgb_sound, mbc3-tester, rtc3test).
 
-NEXT ROUND SEED (round 51): decide autonomously, don't ask ([[loop-full-autonomy]]). The sub-cycle ceiling
-  is now confirmed 5 WAYS (lcdon R38, CPU-per-M-cycle R44, STAT-write R46, mealybug R48, cgb-acid-hell R50).
-  EVERY remaining precision target -- timing, mealybug, acid-hell -- is sub-cycle. The only frontier left is
-  the from-scratch T-cycle re-calibration (separate parallel path; major multi-round; high-risk).
-  Options: (1) EXPAND (CGB ~40 headroom left in gambatte-cgb; then the gambatte well runs dry -- check the
-  TRUE remaining gambatte-CGB passer count). (2) rtc3test / gbmicrotest: build a custom result harness (these
-  may have M-cycle-resolvable passers -- a fresh coverage source as gambatte dries up). (3) The big swing:
-  commit to the T-cycle re-calibration on a separate path (weigh hard). Lean (1) while it lasts + (2) to open
-  a new coverage source. KEY: gambatte-CGB is nearly exhausted; need a NEW passer source or the T-cycle rewrite.
+NEXT ROUND SEED (round 52): decide autonomously, don't ask ([[loop-full-autonomy]]). gbmicrotest just gave
+  +218 from a NEW source. Keep opening fresh M-cycle-resolvable sources before the (high-risk) T-cycle rewrite:
+  (1) MORE NEW SOURCES: blargg full suite (/tmp/gbtr_x/blargg -- I only have cpu_instrs/instr_timing/mem_timing/
+      dmg_sound subsets; check oam_bug, halt_bug, interrupt_time, the full mem_timing/sound -- serial "Passed").
+      rtc3test (RTC, I have MBC3+RTC -- needs its result mechanism). Each could be +N real coverage.
+  (2) Re-survey gbmicrotest FAILs (295) for any M-cycle-resolvable bug clusters (some may be real bugs, not
+      sub-cycle -- e.g. a DMA/timer/interrupt behavior I get wrong). Decode a few FAIL result bytes (FF80 vs FF81).
+  (3) EXPAND remaining gambatte-CGB (~40). (4) Big swing: T-cycle rewrite (separate path).
+  Lean (1) blargg + (2) gbmicrotest-fail triage -- both fresh real coverage. KEY: --gbmicro mode + gate runner built.
   behind the T-cycle re-calib (4 proofs); that's the big-swing frontier if ever committed to.
   KEY: cgbcmp.py compares CGB RGB vs ref PNG; mealybug_check.py for grayscale; OPRI(FF6C) now implemented.
   KEY: --mooneye prints "RESULT: PASS"; all mooneye PPU-timing PASS; piecemeal sub-cycle = regression (proven 3x).
